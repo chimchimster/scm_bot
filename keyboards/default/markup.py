@@ -1,5 +1,10 @@
 from aiogram.types import KeyboardButton
 from ..utils import add_menu_markups
+from aiogram.filters.callback_data import CallbackData
+
+
+class MyCallback(CallbackData, prefix="my"):
+    city: str
 
 
 class DefaultMarkups:
@@ -27,4 +32,11 @@ class DefaultMarkups:
     @add_menu_markups
     def choose_city(cls) -> tuple[KeyboardButton, ...]:
         choose_city_button = KeyboardButton(text=cls.message_choose_city, callback_data='city')
-        return (choose_city_button,)
+        return choose_city_button,
+
+    @classmethod
+    @add_menu_markups
+    def show_cities(cls) -> tuple[KeyboardButton, ...]:
+        return_back_button = KeyboardButton(text=cls.message_return_back, callback_data='return')
+        city1 = KeyboardButton(text='Moscow', callback_data='moscow')
+        return city1, return_back_button

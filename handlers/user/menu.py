@@ -1,11 +1,19 @@
-from scm_bot.dispatch import dp
-from aiogram.filters import CommandStart, Command
-from aiogram.types import Message
-from scm_bot.keyboards import DefaultMarkups
+from aiogram.filters import CommandStart
+from aiogram.methods import SendMessage
+from aiogram.types import Message, CallbackQuery
+from scm_bot.keyboards import DefaultMarkups, MyCallback
+from aiogram import Router, F
+
+menu_router = Router()
+markups = DefaultMarkups()
 
 
-@dp.message(CommandStart())
-async def show_menu(message: Message) -> None:
+@menu_router.message(CommandStart())
+async def show_menu_handler(message: Message) -> None:
+    await message.answer(text='Добро пожаловать!', reply_markup=markups.choose_city())
 
-    await message.answer(text='None', reply_markup=DefaultMarkups.message_choose_city())
 
+@menu_router.callback_query(lambda x: x.data == 'city')
+async def show_cities(callback: CallbackQuery):
+    print(1)
+    await SendMessage(chat_id=callback.from_user.id, text='Вы выбрали город!', reply_markup=markups.show_cities())
