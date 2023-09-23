@@ -1,12 +1,14 @@
 import asyncio
 import logging
 from datetime import datetime
-
+from random import randint
+from typing import Optional
 from aiogram import Bot, Dispatcher, types, html, F
 from aiogram.filters.command import Command, CommandObject
-from aiogram.types import BufferedInputFile, FSInputFile, URLInputFile
+from aiogram.types import BufferedInputFile, FSInputFile, URLInputFile, ReplyKeyboardMarkup
 from aiogram.utils.markdown import hide_link
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
+from aiogram.filters.callback_data import CallbackData
 
 from config_reader import config
 
@@ -15,71 +17,82 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=config.bot_token.get_secret_value(), parse_mode='HTML')
 dp = Dispatcher()
 
+user_data = {}
 
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    kb = [
-        [
-            types.KeyboardButton(text="С пюрешкой"),
-            types.KeyboardButton(text="Без пюрешки")
-        ],
-    ]
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Выберите способ подачи"
+class NumberCallbackFactory(CallbackData, prefix='fabnum'):
+    action: str
+    value: Optional[int] = None
+
+
+def get_keyboard_fab():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='-2', callback_data=NumberCallbackFactory(action='change', value=-2)
     )
-    await message.answer("Как подавать котлеты?", reply_markup=keyboard)
-
-
-@dp.message(F.text.lower() == 'с пюрешкой')
-async def with_puree(message: types.Message):
-    await message.reply('Отличный выбор!', reply_markup=types.ReplyKeyboardRemove())
-
-@dp.message(F.text.lower() == 'без пюрешки')
-async def without_puree(message: types.Message):
-    await message.reply('Так невкусно!', reply_markup=types.ReplyKeyboardRemove())
-
-
-@dp.message(Command("special_buttons"))
-async def cmd_special_buttons(message: types.Message):
-    builder = ReplyKeyboardBuilder()
-    # метод row позволяет явным образом сформировать ряд
-    # из одной или нескольких кнопок. Например, первый ряд
-    # будет состоять из двух кнопок...
-    builder.row(
-        types.KeyboardButton(text="Запросить геолокацию", request_location=True),
-        types.KeyboardButton(text="Запросить контакт", request_contact=True)
+    builder.button(
+        text='-1', callback_data=NumberCallbackFactory(action='change', value=-1)
     )
-    # ... второй из одной ...
-    builder.row(types.KeyboardButton(
-        text="Создать викторину",
-        request_poll=types.KeyboardButtonPollType(type="quiz"))
-    )
-    # ... а третий снова из двух
-    builder.row(
-        types.KeyboardButton(
-            text="Выбрать премиум пользователя",
-            request_user=types.KeyboardButtonRequestUser(
-                request_id=1,
-                user_is_premium=True
-            )
-        ),
-        types.KeyboardButton(
-            text="Выбрать супергруппу с форумами",
-            request_chat=types.KeyboardButtonRequestChat(
-                request_id=2,
-                chat_is_channel=False,
-                chat_is_forum=True
-            )
+
+    builder.button(
+            text='+1', callback_data=NumberCallbackFactory(action='change', value=+1)
         )
-    )
-    # WebApp-ов пока нет, сорри :(
+    builder.button(
+            text='+2', callback_data=NumberCallbackFactory(action='change', value=+2)
+        )
 
-    await message.answer(
-        "Выберите действие:",
-        reply_markup=builder.as_markup(resize_keyboard=True),
+    builder.button(
+        text='Подтвердить', callback_data=NumberCallbackFactory(action='finish')
     )
+    builder.adjust(4)
+    return builder.as_markup()
+
+
+
+def get_keyboard():
+
+    buttons = [
+        [
+            types.InlineKeyboardButton(text="+1", callback_data="num_incr"),
+            types.InlineKeyboardButton(text='-1', callback_data="num_decr")
+        ],
+        [types.InlineKeyboardButton(text="Конец", callback_data='num_finish')]
+    ]
+
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=buttons,
+
+    )
+
+    return keyboard
+
+
+@dp.message(Command('game'))
+async def game_hdl(message: types.Message):
+    user_data[message.from_user.id] = 0
+    await message.answer(text="Укажите число 0", reply_markup=get_keyboard_fab())
+
+
+async def update_num_text(message: types.Message, num: int):
+
+    await message.edit_text(f'Укажите число {num}', reply_markup=get_keyboard_fab())
+
+
+@dp.callback_query(NumberCallbackFactory.filter(F.action == 'change'))
+async def game_callback_change(callback: types.CallbackQuery, callback_data: NumberCallbackFactory):
+
+    user_value = user_data.get(callback.from_user.id, 0)
+
+    user_data[callback.from_user.id] = user_value + callback_data.value
+    await update_num_text(callback.message, user_value + callback_data.value)
+    await callback.answer()
+
+@dp.callback_query(NumberCallbackFactory.filter(F.action == 'finish'))
+async def game_callback_finish(callback: types.CallbackQuery):
+    user_value = user_data.get(callback.from_user.id, 0)
+
+    await callback.message.edit_text(f'Ваше число: {user_value}')
+    await callback.answer()
+
 
 async def main():
     await dp.start_polling(bot)
