@@ -2,9 +2,15 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class BotSettings(BaseSettings):
     bot_token: SecretStr
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 
 
-config = Settings()
+class DataBaseSettings(BaseSettings):
+    db_url: SecretStr
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+
+
+bot_config = BotSettings()
+database_config = DataBaseSettings()
