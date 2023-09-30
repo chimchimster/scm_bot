@@ -14,7 +14,7 @@ class Order(Base):
     paid = Column(Boolean, default=False)
 
     item_id = Column(Integer, ForeignKey('item.id'))
-    item = relationship('Item', back_populates='orders')
+    item = relationship('Item', back_populates='order')
 
     user_id = Column(Integer, ForeignKey('user.id'))
-    user = relationship('User', back_populates='orders')
+    user = relationship('User', back_populates='order')

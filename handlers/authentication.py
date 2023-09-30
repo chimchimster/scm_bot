@@ -1,46 +1,59 @@
-from aiogram import Router
-from aiogram.filters import Command
+from aiogram import Router, F
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.methods import SendMessage
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from states import Authentication as auth_state
+from states import AuthenticationState
 from database import *
 
 router = Router()
 
 
-@router.message(Command(commands=['start']))
+async def get_auth_state(message: Message) -> AuthenticationState:
+    telegram_id = message.from_user.id
+
+    user = await get_user(telegram_id)
+
+    if user == Signal.USER_EXISTS:
+        is_authenticated = await user_is_authenticated(telegram_id)
+
+        if is_authenticated:
+            return AuthenticationState.available_for_purchases
+        else:
+            return AuthenticationState.waiting_for_authentication
+
+    else:
+        return AuthenticationState.waiting_for_registration
+
+
+@router.message(CommandStart())
 async def start_cmd(
         message: Message,
         state: FSMContext,
 ):
     user_name = message.from_user.username
 
-    state_data = await state.get_data()
-    state_level = state_data.get('state')
+    state_level = await get_auth_state(message)
 
-    if state_level == 'waiting_for_registration':
-        print(state_level)
-        register_button = InlineKeyboardButton(text=f'Зарегистрироваться как {user_name}?', callback_data='register')
-        return_button = InlineKeyboardButton(text='Выйти')
-        keyboard_markup = InlineKeyboardMarkup(
-            inline_keyboard=[[register_button, return_button]]
-        )
+    if state_level == AuthenticationState.waiting_for_registration:
 
-        await message.answer(f'Вы успешно зарегистрировались как {user_name}', reply_markup=keyboard_markup)
+        register_button = InlineKeyboardButton(text=f'Зарегистрироваться', callback_data='user_register')
+        exit_button = InlineKeyboardButton(text='Выйти', callback_data='exit')
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[register_button, exit_button]])
 
-    elif state_level == 'waiting_for_authentication':
+        await message.answer(f'Продолжить регистрацию как {user_name}?', reply_markup=keyboard)
 
-        authenticate_button = InlineKeyboardButton(text=f'Продолжить как {user_name}?', callback_data='authenticate')
-        return_button = InlineKeyboardButton(text='Выйти')
-        keyboard_markup = InlineKeyboardMarkup(
-            inline_keyboard=[[authenticate_button, return_button]]
-        )
-
-        await message.answer(f'Вы авторизовались как {user_name}', reply_markup=keyboard_markup)
-
-    elif state_level == 'available_for_purchases':
-
-        await message.answer('Можете приступать к покупкам!')
+        await state.set_state(AuthenticationState.register_new_user)
 
 
+@router.callback_query(AuthenticationState.register_new_user, lambda callback_name: callback_name.data == 'user_register')
+async def user_register(query: CallbackQuery, state: FSMContext):
+
+    user_id = query.from_user.id
+    username = query.from_user.username
+
+    await create_user(user_id, username)
+
+    await state.set_state(AuthenticationState.available_for_purchases)

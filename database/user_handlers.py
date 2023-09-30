@@ -18,14 +18,14 @@ AUTH_TIME: Final[int] = 7200
 async def get_user(
         telegram_id: int,
         **kwargs
-) -> Union[User, None]:
+) -> Union[User, Signal]:
     db_session = kwargs.pop('db_session')
 
     user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
 
     if user.scalar() is not None:
-        return user.scalar()
-    return None
+        return user
+    return Signal.USER_DOES_NOT_EXIST
 
 
 @execute_transaction
@@ -51,9 +51,8 @@ async def create_user(
     new_user.session = auth_session
 
     await db_session.add(new_user)
-    await db_session.add(auth_session)
 
-    return new_user.scalar()
+    return new_user
 
 
 @execute_transaction

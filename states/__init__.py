@@ -1,1 +1,1 @@
-from .authentication import Authentication
+from .authentication import AuthenticationState

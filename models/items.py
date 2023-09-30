@@ -15,6 +15,7 @@ class Item(Base):
     quantity = Column(Integer, default=0)
 
     category = relationship('Category', back_populates='item')
+    order = relationship('Order', back_populates='item')
 
     __table_args__ = (
         UniqueConstraint('title', name='uq_item_title'),
@@ -28,7 +29,7 @@ class Category(Base):
     title = Column(String(length=10), nullable=False)
     item_id = Column(Integer, ForeignKey('item.id'))
 
-    item = relationship('Item', back_populates='categories')
+    item = relationship('Item', back_populates='category')
 
     __table_args__ = (
         UniqueConstraint('title', name='uq_cat_title'),

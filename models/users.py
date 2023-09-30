@@ -1,6 +1,6 @@
 import time
 
-from sqlalchemy import Column, Integer, BigInteger, String, Boolean, Text, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 
@@ -17,6 +17,11 @@ class User(Base):
     is_restricted = Column(Boolean, default=False, nullable=False)
 
     session = relationship('Session', uselist=False, back_populates='user')
+    order = relationship('Order', back_populates='user')
+
+    __table_args__ = (
+        UniqueConstraint('telegram_id', name='uq_telegram_id'),
+    )
 
 
 class Session(Base):

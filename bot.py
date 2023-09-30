@@ -15,8 +15,8 @@ async def main():
     bot = Bot(token=bot_config.bot_token.get_secret_value(), parse_mode='HTML')
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
-    dp.callback_query.outer_middleware(AuthenticateUserMiddleware())
-    dp.include_routers(auth_router)
+    dp.message.outer_middleware(AuthenticateUserMiddleware())
+    dp.include_router(auth_router)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
