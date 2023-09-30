@@ -1,5 +1,6 @@
-from models import Base
 from sqlalchemy.ext.asyncio import create_async_engine
+
+from models import Base
 
 
 class EngineSQLite3:
@@ -11,4 +12,4 @@ class EngineSQLite3:
             await conn.run_sync(Base.metadata.create_all)
 
 
-engine = EngineSQLite3()
+engine_sqlite3 = EngineSQLite3()
