@@ -13,4 +13,7 @@ __all__ = [
     'user_is_restricted',
     'ban_user',
     'user_is_banned',
-    'Signal']
+    'get_user_purchases_count',
+    'get_total_cost_of_purchased_items',
+    'Signal',
+]

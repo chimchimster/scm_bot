@@ -7,9 +7,8 @@ from states import *
 from database import *
 from keyboards import *
 from utils import render_template
-
-from .navigation import get_personal_account
-
+from .common import get_personal_account_info
+from .navigation import nav_menu_handler
 
 router = Router()
 
@@ -46,9 +45,6 @@ async def start_cmd(
 
         await state.set_state(AuthenticationState.register_new_user)
 
-        st = await state.get_state()
-        print(st)
-
     elif state_level == AuthenticationState.waiting_for_authentication:
 
         await message.answer(f'Авторизоваться как {user_name}?', reply_markup=authenticate_markup())
@@ -57,26 +53,7 @@ async def start_cmd(
 
     elif state_level == AuthenticationState.available_for_purchases:
 
-        text = await render_template('user_detail.html', user=user_name)
-
-        await message.answer(text=text)
-
         await state.set_state(NavigationState.main_menu_state)
-
-
-@router.message(AuthenticationState.available_for_purchases)
-async def menu_nav_handler(
-        message: Message,
-        state: FSMContext,
-        **kwargs,
-):
-    text = await render_template('user_detail.html')
-
-    await message.answer(text=text)
-
-    await message.answer(text='Главное меню')
-
-    print("Хэндлер вызван и сообщения отправлены")
 
 
 @router.callback_query(
@@ -90,10 +67,9 @@ async def register_user_handler(query: CallbackQuery, state: FSMContext):
 
     await create_user(user_id, username)
 
-    await state.set_state(AuthenticationState.available_for_purchases)
+    await state.set_state(NavigationState.main_menu_state)
 
-    await query.message.answer()
-
+    await nav_menu_handler(query.message)
 
 @router.callback_query(
     AuthenticationState.authenticate_user,
@@ -105,7 +81,7 @@ async def auth_user_handler(query: CallbackQuery, state: FSMContext):
 
     await authenticate_user(user_id)
 
-    await state.set_state(AuthenticationState.available_for_purchases)
+    await state.set_state(NavigationState.main_menu_state)
 
 
 @router.callback_query(lambda callback_name: callback_name.data == 'exit')

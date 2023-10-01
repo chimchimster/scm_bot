@@ -116,7 +116,7 @@ async def show_items_count(**kwargs) -> int:
 async def show_sum_of_orders(paid=True, **kwargs) -> float:
     db_session = kwargs.pop('db_session')
 
-    stmt = select([func.sum(Item.price)]).select_from(
+    stmt = select(func.sum(Item.price)).select_from(
         join(Item, Order, Order.item_id == Item.id)
     ).where(Order.paid == paid)
 

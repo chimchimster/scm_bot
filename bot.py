@@ -9,6 +9,7 @@ from handlers.authentication import router as auth_router
 from handlers.navigation import router as nav_menu_router
 from middlewares.authentication import AuthenticateUserMiddleware
 
+
 async def main():
     logging.basicConfig(level=logging.INFO)
 

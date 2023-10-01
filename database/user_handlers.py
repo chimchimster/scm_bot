@@ -5,7 +5,7 @@ import hashlib
 
 from typing import Final, Union
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func, join, and_
 from sqlalchemy.orm import joinedload
 
 from models import *
@@ -28,8 +28,40 @@ async def get_user(
 
 
 @execute_transaction
-async def get_user_purchases():
-    pass
+async def get_user_purchases_count(
+        telegram_id: int,
+        **kwargs,
+) -> int:
+    db_session = kwargs.pop('db_session')
+
+    items_count = await db_session.execute(
+        select(func.count()).where(
+            and_(Order.user_id == telegram_id, Order.paid.is_(True))
+        )
+    )
+
+    total = items_count.scalar()
+
+    return total or 0
+
+
+@execute_transaction
+async def get_total_cost_of_purchased_items(
+        telegram_id: int,
+        **kwargs,
+) -> float:
+
+    db_session = kwargs.pop('db_session')
+
+    items_price_count = await db_session.execute(
+        select(func.sum(Item.price)).select_from(
+            join(Order, Item, Order.item_id == Item.id).join(User, User.id == Order.user_id)
+        ).where(and_(User.id == telegram_id, Order.paid.is_(True)))
+    )
+
+    total = items_price_count.scalar()
+
+    return total or 0.0
 
 
 @execute_transaction
