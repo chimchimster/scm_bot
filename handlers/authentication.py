@@ -1,43 +1,27 @@
 from aiogram import Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
 from states import *
 from database import *
 from keyboards import *
-from utils import render_template
-from .common import get_personal_account_info
 from .navigation import nav_menu_handler
+
 
 router = Router()
 
 
-async def get_auth_state(message: Message) -> AuthenticationState:
-    telegram_id = message.from_user.id
-
-    has_user = await user_exists(telegram_id)
-
-    if has_user == Signal.USER_EXISTS:
-
-        is_authenticated = await user_is_authenticated(telegram_id)
-
-        if is_authenticated == Signal.USER_AUTHORIZED:
-            return AuthenticationState.available_for_purchases
-        else:
-            return AuthenticationState.waiting_for_authentication
-    else:
-        return AuthenticationState.waiting_for_registration
-
-
-@router.message(CommandStart())
-async def start_cmd(
+@router.message(Command(commands=['run']))
+async def run_cmd(
         message: Message,
         state: FSMContext,
+        **kwargs,
 ):
+
     user_name = message.from_user.username
 
-    state_level = await get_auth_state(message)
+    state_level = kwargs.get('auth_state')
 
     if state_level == AuthenticationState.waiting_for_registration:
 
@@ -55,6 +39,8 @@ async def start_cmd(
 
         await state.set_state(NavigationState.main_menu_state)
 
+        await nav_menu_handler(message)
+
 
 @router.callback_query(
     AuthenticationState.register_new_user,
@@ -71,6 +57,7 @@ async def register_user_handler(query: CallbackQuery, state: FSMContext):
 
     await nav_menu_handler(query.message)
 
+
 @router.callback_query(
     AuthenticationState.authenticate_user,
     lambda callback_name: callback_name.data == 'auth_user_handler',
@@ -82,6 +69,8 @@ async def auth_user_handler(query: CallbackQuery, state: FSMContext):
     await authenticate_user(user_id)
 
     await state.set_state(NavigationState.main_menu_state)
+
+    await nav_menu_handler(query.message)
 
 
 @router.callback_query(lambda callback_name: callback_name.data == 'exit')

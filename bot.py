@@ -18,6 +18,10 @@ async def main():
     dp = Dispatcher(storage=storage)
     dp.message.outer_middleware(AuthenticateUserMiddleware())
     dp.include_routers(auth_router, nav_menu_router)
+
+    updates = await bot.get_updates()
+    print(updates)
+
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
