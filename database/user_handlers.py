@@ -1,3 +1,4 @@
+import asyncio
 import time
 import secrets
 import hashlib
@@ -5,26 +6,43 @@ import hashlib
 from typing import Final, Union
 
 from sqlalchemy import select, update
+from sqlalchemy.orm import joinedload
 
 from models import *
 from .signals import Signal
 from .decorators import execute_transaction
 
-
-AUTH_TIME: Final[int] = 7200
+AUTH_TIME: Final[int] = 1800
 
 
 @execute_transaction
 async def get_user(
         telegram_id: int,
         **kwargs
-) -> Union[User, Signal]:
+) -> User:
+    db_session = kwargs.pop('db_session')
+
+    user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
+
+    return user.scalar()
+
+
+@execute_transaction
+async def get_user_purchases():
+    pass
+
+
+@execute_transaction
+async def user_exists(
+        telegram_id: int,
+        **kwargs
+) -> Signal:
     db_session = kwargs.pop('db_session')
 
     user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
 
     if user.scalar() is not None:
-        return user
+        return Signal.USER_EXISTS
     return Signal.USER_DOES_NOT_EXIST
 
 
@@ -33,13 +51,8 @@ async def create_user(
         telegram_id: int,
         username: str,
         **kwargs,
-) -> Union[User, Signal]:
+) -> User:
     db_session = kwargs.pop('db_session')
-
-    user = await get_user(telegram_id)
-
-    if user is not None:
-        return Signal.USER_EXISTS
 
     new_user = User(username=username, telegram_id=telegram_id)
 
@@ -50,7 +63,7 @@ async def create_user(
 
     new_user.session = auth_session
 
-    await db_session.add(new_user)
+    db_session.add(new_user)
 
     return new_user
 
@@ -59,39 +72,113 @@ async def create_user(
 async def user_is_authenticated(
         telegram_id: int,
         **kwargs,
-) -> Union[bool, Signal]:
+) -> Signal:
     db_session = kwargs.pop('db_session')
 
-    user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
-
-    if user.scalar() is None:
-        return Signal.USER_DOES_NOT_EXIST
-
+    result = await db_session.execute(
+        select(User).filter_by(telegram_id=telegram_id).options(joinedload(User.session))
+    )
+    user = result.fetchone()
     now = int(time.time())
 
-    if now - user.session.created_at_unix > AUTH_TIME:
+    session_unix_time = user[-1].session.created_at_unix
+    is_expired = user[-1].session.expired
+
+    if now - session_unix_time > AUTH_TIME or is_expired:
         return Signal.USER_DOES_NOT_AUTHORIZED
 
-    return True
+    return Signal.USER_AUTHORIZED
 
 
+@execute_transaction
 async def authenticate_user(
         telegram_id: int,
         **kwargs,
-) -> Union[User, Signal]:
+) -> User:
     db_session = kwargs.pop('db_session')
 
     user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
+    user = user.scalar()
 
-    if user.scalar() is None:
-        return Signal.USER_DOES_NOT_EXIST
     session_key = secrets.token_hex(32)
     auth_hash = hashlib.sha256(session_key.encode()).hexdigest()
 
-    auth_session = Session(auth_hash=auth_hash, created_at_unix=int(time.time()))
+    await db_session.execute(
+        update(Session)
+        .where(Session.user_id == user.id)
+        .values(auth_hash=auth_hash, created_at_unix=int(time.time()), expired=False)
+    )
 
-    await db_session.execute(update(User).values(session=auth_session))
+    return user
 
-    return user.scalar()
+
+@execute_transaction
+async def logout(
+        telegram_id: int,
+        **kwargs,
+) -> User:
+    db_session = kwargs.pop('db_session')
+
+    user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
+    user = user.scalar()
+
+    await db_session.execute(update(Session).where(Session.user_id == user.id).values(expired=True))
+
+    return user
+
+
+@execute_transaction
+async def restrict_user(
+        telegram_id: int,
+        **kwargs,
+) -> User:
+    db_session = kwargs.pop('db_session')
+
+    user = await db_session.execute(update(User).filter_by(telegram_id=telegram_id).values(is_restricted=True))
+
+    return user
+
+
+@execute_transaction
+async def user_is_restricted(
+        telegram_id: int,
+        **kwargs,
+) -> Signal:
+    db_session = kwargs.pop('db_session')
+
+    user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
+    user = user.scalar()
+
+    if user.is_restricted:
+        return Signal.USER_IS_RESTRICTED
+    return Signal.USER_IS_NOT_RESTRICTED
+
+
+@execute_transaction
+async def ban_user(
+        telegram_id: int,
+        **kwargs,
+) -> User:
+    db_session = kwargs.pop('db_session')
+
+    user = await db_session.execute(update(User).filter_by(telegram_id=telegram_id).values(is_banned=True))
+
+    return user
+
+
+@execute_transaction
+async def user_is_banned(
+        telegram_id: int,
+        **kwargs,
+) -> Signal:
+    db_session = kwargs.pop('db_session')
+
+    user = await db_session.execute(select(User).filter_by(telegram_id=telegram_id))
+    user = user.scalar()
+
+    if user.is_blocked:
+        return Signal.USER_IS_BANNED
+    return Signal.USER_IS_NOT_BANNED
+
 
 

@@ -29,6 +29,7 @@ class Session(Base):
 
     auth_hash = Column(Text, nullable=False)
     created_at_unix = Column(BigInteger, default=int(time.time()), primary_key=True)
+    expired = Column(Boolean, default=False)
 
     user_id = Column(Integer, ForeignKey('user.id'))
     user = relationship('User', back_populates='session')
