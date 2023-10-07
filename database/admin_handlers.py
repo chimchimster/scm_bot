@@ -128,6 +128,34 @@ async def show_sum_of_orders(paid=True, **kwargs) -> float:
 
 
 @execute_transaction
+async def add_category(title: str, **kwargs) -> int:
+
+    db_session = kwargs.pop('db_session')
+
+    category_exists = await check_if_category_exists(title, db_session)
+
+    if category_exists:
+        return category_exists
+
+    stmt = insert(Category).values(title=title)
+    stmt = stmt.returning(Category.id)
+
+    result = await db_session.execute(stmt)
+
+    category_id = result.scalar()
+    return category_id
+
+
+async def check_if_category_exists(title: str, session: AsyncSession) -> Union[int, None]:
+
+    stmt = select(Category.id).filter_by(title=title)
+    result = await session.execute(stmt)
+
+    category_id = result.scalar()
+    return category_id
+
+
+@execute_transaction
 async def add_city(title: str, **kwargs) -> int:
 
     db_session = kwargs.pop('db_session')
@@ -197,16 +225,24 @@ async def add_item(data: Dict, **kwargs):
     price = data.get('price')
     quantity = data.get('quantity')
     image = bytes(data.get('image_bytes', b''))
+    category_id = data.get('category_id')
     city_id = data.get('city_id')
     location_id = data.get('location_id')
 
-    stmt = insert(Item).values(title=title, description=description, price=price, image=image, quantity=quantity)
+    stmt = insert(Item).values(
+        title=title,
+        description=description,
+        price=price,
+        image=image,
+        quantity=quantity,
+    )
     stmt = stmt.returning(Item.id)
 
     result = await db_session.execute(stmt)
     item_id = result.scalar()
 
+    item_category = ItemCategoryAssociation(item_id=item_id, category_id=category_id)
     item_city = ItemCityAssociation(city_id=city_id, item_id=item_id)
     city_location = CityLocationAssociation(city_id=city_id, location_id=location_id)
 
-    db_session.add_all([item_city, city_location])
+    db_session.add_all([item_city, city_location, item_category])

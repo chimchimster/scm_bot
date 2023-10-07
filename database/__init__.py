@@ -22,4 +22,9 @@ __all__ = [
     'add_city',
     'add_location',
     'add_item',
+    'add_category',
+    'get_available_categories',
+    'create_order',
+    'get_item',
+    'get_item_category',
 ]

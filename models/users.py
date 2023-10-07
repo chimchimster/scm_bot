@@ -8,6 +8,7 @@ from .base import Base
 
 
 class User(Base):
+
     __tablename__ = 'user'
 
     id = Column(Integer, autoincrement=True, primary_key=True)
@@ -25,6 +26,7 @@ class User(Base):
 
 
 class Session(Base):
+
     __tablename__ = 'session'
 
     auth_hash = Column(Text, nullable=False)

@@ -1,4 +1,4 @@
 from .common import *
 
 
-__all__ = ['CityCallback', 'LocationCallback']
+__all__ = ['CityCallback', 'LocationCallback', 'ItemCallback', 'CategoryCallback']

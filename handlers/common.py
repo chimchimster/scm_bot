@@ -1,3 +1,5 @@
+from typing import Union
+
 from database import *
 from utils import render_template
 
@@ -18,3 +20,42 @@ async def get_personal_account_info(
     )
 
     return text
+
+
+async def get_order_info(
+        item_id: int,
+        order_id: int,
+        telegram_id: int,
+) -> Union[str, None]:
+
+    item = await get_item(item_id)
+
+    if not item:
+        return
+
+    user = await get_user(telegram_id)
+
+    if not user:
+        return
+
+    category = await get_item_category(item_id)
+
+    if not category:
+        return
+
+    text = await render_template(
+        'order_detail.html',
+        id=order_id,
+        username=user.username,
+        title=item.title,
+        category=category.title,
+        total_cost=item.price,
+    )
+
+    return text
+
+
+__all__ = [
+    'get_personal_account_info',
+    'get_order_info',
+]

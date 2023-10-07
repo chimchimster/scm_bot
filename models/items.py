@@ -6,6 +6,7 @@ from .location import City
 
 
 class ItemCityAssociation(Base):
+
     __tablename__ = 'item_city'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -17,7 +18,21 @@ class ItemCityAssociation(Base):
     city = relationship('City', back_populates='item')
 
 
+class ItemCategoryAssociation(Base):
+
+    __tablename__ = 'item_category'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    category_id = Column(Integer, ForeignKey('categories.id'))
+    item_id = Column(Integer, ForeignKey('item.id'))
+
+    item = relationship('Item', back_populates='category')
+    category = relationship('Category', back_populates='item')
+
+
 class Item(Base):
+
     __tablename__ = 'item'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -27,7 +42,7 @@ class Item(Base):
     price = Column(Numeric, default=0.0)
     quantity = Column(Integer, default=0)
 
-    category = relationship('Category', back_populates='item')
+    category = relationship('ItemCategoryAssociation', back_populates='item')
     order = relationship('Order', back_populates='item')
     city = relationship('ItemCityAssociation', back_populates='item')
 
@@ -37,13 +52,13 @@ class Item(Base):
 
 
 class Category(Base):
+
     __tablename__ = 'categories'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(length=10), nullable=False)
-    item_id = Column(Integer, ForeignKey('item.id'))
 
-    item = relationship('Item', back_populates='category')
+    item = relationship('ItemCategoryAssociation', back_populates='category')
 
     __table_args__ = (
         UniqueConstraint('title', name='uq_cat_title'),

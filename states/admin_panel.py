@@ -11,6 +11,7 @@ class AddItemState(StatesGroup):
     add_price_state = State()
     add_quantity_state = State()
     add_image_state = State()
+    choose_category_state = State()
     choose_city_state = State()
     choose_location_state = State()
     confirm_state = State()

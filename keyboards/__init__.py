@@ -10,4 +10,7 @@ __all__ = [
     'choose_location_markup',
     'add_item_markup',
     'confirm_uploading_item',
+    'choose_item_markup',
+    'choose_category_markup',
+    'confirm_choice_markup',
 ]

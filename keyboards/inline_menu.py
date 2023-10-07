@@ -43,3 +43,47 @@ async def choose_location_markup(city_id: int) -> InlineKeyboardMarkup:
 
     builder.adjust(2, 3, repeat=True)
     return builder.as_markup()
+
+
+async def choose_item_markup(location_id: int) -> InlineKeyboardMarkup:
+
+    builder = InlineKeyboardBuilder()
+
+    items = await get_available_items(location_id)
+
+    for item in items:
+        builder.button(text=item[1], callback_data=ItemCallback(id=item[0], title=item[1]))
+
+    return_to_previous_callback_button = InlineKeyboardButton(text='Назад', callback_data='return_to_previous_callback')
+    builder.add(return_to_previous_callback_button)
+
+    builder.adjust(2, 3, repeat=True)
+    return builder.as_markup()
+
+
+async def choose_category_markup(item_id: int) -> InlineKeyboardMarkup:
+
+    builder = InlineKeyboardBuilder()
+
+    categories = await get_available_categories(item_id)
+
+    for item in categories:
+        builder.button(text=item[1], callback_data=CategoryCallback(id=item[0], title=item[1]))
+
+    return_to_previous_callback_button = InlineKeyboardButton(text='Назад', callback_data='return_to_previous_callback')
+    builder.add(return_to_previous_callback_button)
+
+    builder.adjust(2, 3, repeat=True)
+    return builder.as_markup()
+
+
+async def confirm_choice_markup() -> InlineKeyboardMarkup:
+
+    confirm_choice_button = InlineKeyboardButton(text='Да', callback_data='confirm_choice')
+    refuse_choice_button = InlineKeyboardButton(text='Назад', callback_data='return_to_previous_callback')
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[confirm_choice_button, refuse_choice_button]]
+    )
+
+    return keyboard

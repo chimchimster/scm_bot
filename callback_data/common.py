@@ -12,3 +12,15 @@ class LocationCallback(CallbackData, prefix='location'):
     title: str
     callback_name: str = 'city'
 
+
+class ItemCallback(CallbackData, prefix='item'):
+    id: int
+    title: str
+    callback_name: str = 'item'
+
+
+class CategoryCallback(CallbackData, prefix='category'):
+    id: int
+    title: str
+    callback_data: str = 'category'
+

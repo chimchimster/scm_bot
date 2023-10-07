@@ -5,7 +5,7 @@ import hashlib
 
 from typing import Final, Union, List
 
-from sqlalchemy import select, update, func, join, and_, Row, Sequence
+from sqlalchemy import select, update, func, join, and_, Row, Sequence, insert
 from sqlalchemy.orm import joinedload
 
 from models import *
@@ -218,7 +218,12 @@ async def get_available_cities(**kwargs) -> Union[Sequence[Row[int, str]], List]
 
     db_session = kwargs.pop('db_session')
 
-    cities = await db_session.execute(select(City.id, City.title))
+    cities = await db_session.execute(
+        select(City.id, City.title).select_from(
+            join(ItemCityAssociation, City, ItemCityAssociation.city_id == City.id).
+            join(Item, ItemCityAssociation.item_id == Item.id)
+        )
+    )
     cities = cities.fetchall()
 
     if cities:
@@ -233,7 +238,8 @@ async def get_available_locations(city_id: int, **kwargs) -> Union[Sequence[Row[
 
     locations = await db_session.execute(
         select(Location.id, Location.title).select_from(
-            join(City, Location, City.id == Location.city_id)
+            join(CityLocationAssociation, City, CityLocationAssociation.city_id == City.id).
+            join(Location, CityLocationAssociation.location_id == Location.id)
         ).where(City.id == city_id)
     )
     locations = locations.fetchall()
@@ -249,13 +255,89 @@ async def get_available_items(location_id: int, **kwargs) -> Union[Sequence[Row[
     db_session = kwargs.pop('db_session')
 
     items = await db_session.execute(
-        select(Item).select_from(
-            join(Item, City, Item.city_id == City.id).join(Location, City, Location.city_id == City.id)
+        select(Item.id, Item.title).select_from(
+            join(Item, ItemCityAssociation, Item.id == ItemCityAssociation.item_id).
+            join(City, ItemCityAssociation.city_id == City.id).
+            join(CityLocationAssociation, City.id == CityLocationAssociation.city_id)
         ).where(Location.id == location_id)
-    ).all()
+    )
 
     items = items.fetchall()
 
     if items:
         return items
     return []
+
+
+@execute_transaction
+async def get_available_categories(item_id: int, **kwargs) -> Union[Sequence[Row[Item]], List]:
+
+    db_session = kwargs.pop('db_session')
+
+    categories = await db_session.execute(
+        select(Category.id, Category.title).select_from(
+            join(Category, ItemCategoryAssociation, Category.id == ItemCategoryAssociation.category_id).
+            join(Item, ItemCategoryAssociation.item_id == Item.id)
+        ).where(Item.id == item_id)
+    )
+
+    categories = categories.fetchall()
+
+    if categories:
+        return categories
+    return []
+
+
+@execute_transaction
+async def create_order(
+        user_id: int,
+        item_id: int,
+        **kwargs,
+) -> int:
+
+    db_session = kwargs.pop('db_session')
+
+    stmt = insert(Order).values(item_id=item_id, user_id=user_id)
+    stmt = stmt.returning(Order.id)
+
+    result = await db_session.execute(stmt)
+    order_id = result.scalar()
+
+    return order_id
+
+
+@execute_transaction
+async def get_item(
+        item_id: int,
+        **kwargs,
+) -> Union[Item, None]:
+
+    db_session = kwargs.pop('db_session')
+
+    stmt = select(Item).filter_by(id=item_id)
+    result = await db_session.execute(stmt)
+
+    item = result.scalar()
+
+    return item
+
+
+@execute_transaction
+async def get_item_category(
+        item_id: int,
+        **kwargs,
+) -> Union[Category, None]:
+
+    db_session = kwargs.pop('db_session')
+
+    stmt = select(Category).select_from(
+        join(Category, ItemCategoryAssociation, Category.id == ItemCategoryAssociation.category_id).
+        join(Item, ItemCategoryAssociation.item_id == Item.id)
+    )
+    result = await db_session.execute(stmt)
+
+    category = result.scalar()
+
+    return category
+
+

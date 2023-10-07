@@ -16,4 +16,5 @@ __all__ = [
     'Location',
     'ItemCityAssociation',
     'CityLocationAssociation',
+    'ItemCategoryAssociation',
 ]

@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import Column, BigInteger, Boolean, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -5,11 +7,11 @@ from .base import Base
 
 
 class Order(Base):
+
     __tablename__ = 'orders'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    created_at = Column(BigInteger)
-    expired_at = Column(BigInteger)
+    created_at = Column(BigInteger, default=int(time.time()))
     expired = Column(Boolean, default=False)
     paid = Column(Boolean, default=False)
 

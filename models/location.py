@@ -5,6 +5,7 @@ from .base import Base
 
 
 class CityLocationAssociation(Base):
+
     __tablename__ = 'city_location'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -17,6 +18,7 @@ class CityLocationAssociation(Base):
 
 
 class City(Base):
+
     __tablename__ = 'cities'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -31,6 +33,7 @@ class City(Base):
 
 
 class Location(Base):
+
     __tablename__ = 'locations'
 
     id = Column(Integer, primary_key=True, autoincrement=True)

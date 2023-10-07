@@ -3,12 +3,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
 from states import *
-from database import *
 from keyboards import *
+from database import *
+from .common import *
 from callback_data import *
-from utils import render_template
 
-from .common import get_personal_account_info
 
 router = Router()
 
@@ -54,7 +53,6 @@ async def choose_city_handler(query: CallbackQuery, state: FSMContext):
 
     await query.message.answer('Выберите город', reply_markup=await choose_city_markup())
 
-    await state.update_data(prev_callback_data=query.data)
     await state.set_state(NavigationState.choose_location_state)
 
 
@@ -68,8 +66,69 @@ async def choose_location_handler(query: CallbackQuery, state: FSMContext):
 
     await query.message.answer('Выберите локацию', reply_markup=await choose_location_markup(city_id))
 
-    await state.update_data(prev_callback_data=callback_data)
+    await state.update_data(city_id=city_id)
     await state.set_state(NavigationState.choose_item_state)
+
+
+@router.callback_query(
+    NavigationState.choose_item_state,
+)
+async def choose_item_handler(query: CallbackQuery, state: FSMContext):
+
+    callback_data = LocationCallback.unpack(query.data)
+    location_id = callback_data.id
+
+    await query.message.answer('Выберите товар', reply_markup=await choose_item_markup(location_id))
+
+    await state.update_data(location_id=location_id)
+    await state.set_state(NavigationState.choose_item_category_state)
+
+
+@router.callback_query(
+    NavigationState.choose_item_category_state,
+)
+async def choose_category_handler(query: CallbackQuery, state: FSMContext):
+
+    callback_data = ItemCallback.unpack(query.data)
+    item_id = callback_data.id
+
+    await query.message.answer('Выберите категорию', reply_markup= await choose_category_markup(item_id))
+
+    await state.update_data(item_id=item_id)
+    await state.set_state(PaymentState.begin_order_state)
+
+
+@router.callback_query(
+    PaymentState.begin_order_state,
+)
+async def payment_start_handler(query: CallbackQuery, state: FSMContext):
+
+    await query.message.answer(text='Подтвердить выбор?', reply_markup=await confirm_choice_markup())
+    await state.set_state(PaymentState.create_order_state)
+
+
+@router.callback_query(
+    PaymentState.create_order_state,
+    lambda callback_name: callback_name.data == 'confirm_choice'
+)
+async def create_order_handler(query: CallbackQuery, state: FSMContext):
+
+    order_data = await state.get_data()
+    user_telegram_id = query.from_user.id
+
+    user = await get_user(user_telegram_id)
+    user_id = user.id
+    item_id = order_data.get('item_id')
+
+    # TODO: Добавить в детелизацию по заказу
+    city_id = order_data.get('city_id')
+    location_id = order_data.get('location_id')
+
+    order_id = await create_order(user_id, item_id)
+
+    order_info = await get_order_info(item_id, order_id, user_telegram_id)
+
+    await query.message.answer(text=order_info)
 
 
 @router.callback_query(

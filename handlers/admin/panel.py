@@ -68,7 +68,7 @@ async def add_price_handler(message: Message, state: FSMContext):
     price = message.text
 
     try:
-        price = float(price)
+        price = round(float(price), 2)
     except TypeError:
         await message.answer(
             text='Цена продукта должна быть в числовом формате. Допускаются значения с плавающей точкой.'
@@ -118,11 +118,25 @@ async def add_image_handler(message: Message, state: FSMContext, bot: Bot):
 
         await state.update_data(image_bytes=await image_bytes)
 
-        await state.set_state(AddItemState.choose_city_state)
+        await state.set_state(AddItemState.choose_category_state)
 
-        await message.answer('Выберите город')
+        await message.answer('Выберите категорию')
 
     os.remove(f'temp_images/{image.file_id}.jpg')
+
+
+@router.message(AddItemState.choose_category_state)
+async def choose_category_state(message: Message, state: FSMContext):
+
+    category = message.text
+
+    category_id = await add_category(category)
+
+    await state.update_data(category_id=category_id)
+
+    await state.set_state(AddItemState.choose_city_state)
+
+    await message.answer('Выберите город')
 
 
 @router.message(AddItemState.choose_city_state)
