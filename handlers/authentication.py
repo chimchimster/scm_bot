@@ -1,5 +1,5 @@
 from aiogram import Router
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
@@ -12,8 +12,8 @@ from .navigation import nav_menu_handler
 router = Router()
 
 
-@router.message(Command(commands=['run']))
-async def run_cmd(
+@router.message(CommandStart())
+async def start_cmd_handler(
         message: Message,
         state: FSMContext,
         **kwargs,

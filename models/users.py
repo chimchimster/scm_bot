@@ -16,8 +16,8 @@ class User(Base):
     is_blocked = Column(Boolean, default=False, nullable=False)
     is_restricted = Column(Boolean, default=False, nullable=False)
 
-    session = relationship('Session', uselist=False, back_populates='user')
-    order = relationship('Order', back_populates='user')
+    session = relationship('Session', uselist=False, back_populates='user', cascade="all, delete-orphan")
+    order = relationship('Order', back_populates='user', cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint('telegram_id', name='uq_telegram_id'),

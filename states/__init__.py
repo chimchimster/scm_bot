@@ -2,4 +2,4 @@ from .authentication import *
 from .navigation import *
 
 
-__all__ = ['AuthenticationState', 'NavigationState']
+__all__ = ['AuthenticationState', 'NavigationState', 'PurchaseState']

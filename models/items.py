@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, ForeignKey, String, Text, LargeBinary, N
 from sqlalchemy.orm import relationship
 
 from .base import Base
+from .location import City
 
 
 class Item(Base):
@@ -13,6 +14,7 @@ class Item(Base):
     image = Column(LargeBinary, nullable=True)
     price = Column(Numeric, default=0.0)
     quantity = Column(Integer, default=0)
+    city_id = Column(Integer, ForeignKey('cities.id'))
 
     category = relationship('Category', back_populates='item')
     order = relationship('Order', back_populates='item')

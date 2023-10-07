@@ -3,9 +3,9 @@ import time
 import secrets
 import hashlib
 
-from typing import Final, Union
+from typing import Final, Union, List
 
-from sqlalchemy import select, update, func, join, and_
+from sqlalchemy import select, update, func, join, and_, Row, Sequence
 from sqlalchemy.orm import joinedload
 
 from models import *
@@ -213,4 +213,49 @@ async def user_is_banned(
     return Signal.USER_IS_NOT_BANNED
 
 
+@execute_transaction
+async def get_available_cities(**kwargs) -> Union[Sequence[Row[int, str]], List]:
 
+    db_session = kwargs.pop('db_session')
+
+    cities = await db_session.execute(select(City.id, City.title))
+    cities = cities.fetchall()
+
+    if cities:
+        return cities
+    return []
+
+
+@execute_transaction
+async def get_available_locations(city_id: int, **kwargs) -> Union[Sequence[Row[int, str]], List]:
+
+    db_session = kwargs.pop('db_session')
+
+    locations = await db_session.execute(
+        select(Location.id, Location.title).select_from(
+            join(City, Location, City.id == Location.city_id)
+        ).where(City.id == city_id)
+    )
+    locations = locations.fetchall()
+
+    if locations:
+        return locations
+    return []
+
+
+@execute_transaction
+async def get_available_items(location_id: int, **kwargs) -> Union[Sequence[Row[Item]], List]:
+
+    db_session = kwargs.pop('db_session')
+
+    items = await db_session.execute(
+        select(Item).select_from(
+            join(Item, City, Item.city_id == City.id).join(Location, City, Location.city_id == City.id)
+        ).where(Location.id == location_id)
+    ).all()
+
+    items = items.fetchall()
+
+    if items:
+        return items
+    return []

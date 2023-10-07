@@ -16,4 +16,7 @@ __all__ = [
     'get_user_purchases_count',
     'get_total_cost_of_purchased_items',
     'Signal',
+    'get_available_cities',
+    'get_available_locations',
+    'get_available_items',
 ]
