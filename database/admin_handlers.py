@@ -1,6 +1,7 @@
-from typing import Union
+from typing import Union, Dict
 
 from sqlalchemy import select, update, insert, delete, join, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import *
 from .signals import Signal
@@ -114,6 +115,7 @@ async def show_items_count(**kwargs) -> int:
 
 @execute_transaction
 async def show_sum_of_orders(paid=True, **kwargs) -> float:
+
     db_session = kwargs.pop('db_session')
 
     stmt = select(func.sum(Item.price)).select_from(
@@ -123,3 +125,70 @@ async def show_sum_of_orders(paid=True, **kwargs) -> float:
     total_amount = await db_session.execute(stmt)
 
     return total_amount.scalar()
+
+
+@execute_transaction
+async def add_city(title: str, **kwargs) -> int:
+
+    db_session = kwargs.pop('db_session')
+
+    city_exists = await check_if_city_exists(title, db_session)
+
+    if city_exists:
+        return city_exists
+
+    stmt = insert(City).values(title=title)
+    stmt = stmt.returning(City.id)
+
+    result = await db_session.execute(stmt)
+    city_id = result.scalar()
+
+    return city_id
+
+
+async def check_if_city_exists(title: str, session: AsyncSession) -> Union[int, None]:
+
+    stmt = select(City.id).filter_by(title=title)
+
+    city = await session.execute(stmt)
+    city = city.scalar()
+
+    return city
+
+
+@execute_transaction
+async def add_location(title: str, **kwargs) -> int:
+
+    db_session = kwargs.pop('db_session')
+
+    location_exists = await check_if_location_exists(title, db_session)
+
+    if location_exists:
+        return location_exists
+
+    stmt = insert(Location).values(title=title)
+    stmt = stmt.returning(Location.id)
+
+    result = await db_session.execute(stmt)
+    location_id = result.scalar()
+
+    return location_id
+
+
+async def check_if_location_exists(title: str, session: AsyncSession) -> Union[int, bool]:
+
+    stmt = select(Location.id).filter_by(title=title)
+
+    location = await session.execute(stmt)
+    location = location.scalar()
+
+    if location:
+        return location
+    return False
+
+
+@execute_transaction
+async def add_item(data: Dict, **kwargs):
+
+    db_session = kwargs.pop('db_session')
+

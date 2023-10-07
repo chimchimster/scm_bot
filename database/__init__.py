@@ -19,4 +19,6 @@ __all__ = [
     'get_available_cities',
     'get_available_locations',
     'get_available_items',
+    'add_city',
+    'add_location',
 ]

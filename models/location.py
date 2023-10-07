@@ -15,6 +15,7 @@ class City(Base):
     )
 
     location = relationship('Location', back_populates='city')
+    item = relationship('ItemCityAssociation', back_populates='city')
 
 
 class Location(Base):
