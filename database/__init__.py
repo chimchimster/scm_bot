@@ -21,4 +21,5 @@ __all__ = [
     'get_available_items',
     'add_city',
     'add_location',
+    'add_item',
 ]

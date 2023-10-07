@@ -116,7 +116,7 @@ async def add_image_handler(message: Message, state: FSMContext, bot: Bot):
 
         image_bytes = file.read()
 
-        await state.update_data(image_bytes=image_bytes)
+        await state.update_data(image_bytes=await image_bytes)
 
         await state.set_state(AddItemState.choose_city_state)
 
@@ -157,5 +157,6 @@ async def choose_location_handler(message: Message, state: FSMContext):
 async def confirm_uploading_item_handler(query: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
-    print(data)
+
+    await add_item(data)
 

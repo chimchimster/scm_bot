@@ -192,3 +192,21 @@ async def add_item(data: Dict, **kwargs):
 
     db_session = kwargs.pop('db_session')
 
+    title = data.get('title')
+    description = data.get('description')
+    price = data.get('price')
+    quantity = data.get('quantity')
+    image = bytes(data.get('image_bytes', b''))
+    city_id = data.get('city_id')
+    location_id = data.get('location_id')
+
+    stmt = insert(Item).values(title=title, description=description, price=price, image=image, quantity=quantity)
+    stmt = stmt.returning(Item.id)
+
+    result = await db_session.execute(stmt)
+    item_id = result.scalar()
+
+    item_city = ItemCityAssociation(city_id=city_id, item_id=item_id)
+    city_location = CityLocationAssociation(city_id=city_id, location_id=location_id)
+
+    db_session.add_all([item_city, city_location])
