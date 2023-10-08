@@ -34,4 +34,5 @@ __all__ = [
     'get_last_order',
     'order_minutes_left',
     'check_if_user_has_unpaid_orders',
+    'get_item_by_order_id',
 ]

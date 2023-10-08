@@ -11,26 +11,42 @@ class PaymentSucceedFilter(BaseFilter):
     async def __call__(self, query: CallbackQuery, state: FSMContext):
 
         data = await state.get_data()
+
         item_id = data.get('item_id')
         user_id = data.get('user_id')
+
+        last_order = await get_last_order(user_id, item_id)
+
+        order_has_been_expired = await check_if_order_expired(last_order)
+
+        if order_has_been_expired:
+
+            await set_order_expired(last_order)
+
+            await state.set_state(PaymentState.order_expired_state)
+
+        else:
+
+            await state.set_state(PaymentState.order_paid_state)
+
+        current_state = await state.get_state()
+
+        return current_state
+
+
+class BlockUnpaidOrderFilter(BaseFilter):
+    async def __call__(self, query: CallbackQuery, state: FSMContext):
+
+        data = await state.get_data()
+
+        item_id = data.get('item_id')
+        user_id = data.get('user_id')
+
+        last_order = await get_last_order(user_id, item_id)
 
         has_unpaid_orders = await check_if_user_has_unpaid_orders(user_id)
 
         if has_unpaid_orders:
-
-            await query.message.answer('У вас есть неоплаченный заказ. Оплатите либо откажитесь от оплаты')
-
-        else:
-
-            last_order = await get_last_order(user_id, item_id)
-
-            order_has_been_expired = await check_if_order_expired(last_order)
-
-            if order_has_been_expired:
-
-                await set_order_expired(last_order)
-                await state.set_state(PaymentState.order_expired_state)
-                await query.message.answer('Заказ просрочен!')
 
             order_has_been_payed = await check_if_order_has_been_paid(last_order)
 
@@ -38,9 +54,15 @@ class PaymentSucceedFilter(BaseFilter):
 
                 minutes_left = await order_minutes_left(last_order)
 
-                await query.message.answer(f'Для оплаты заказа у вас осталось {minutes_left} минут. В противном случае, заказ будет отменен.')
+                last_order_item = await get_item_by_order_id(last_order.id)
 
-            else:
+                await query.message.answer(f'У вас есть неоплаченный заказ {last_order_item.title}.\n\n'
+                                           f'На сумму {last_order_item.price}\n\n'
+                                           f'Для оплаты заказа у вас осталось {minutes_left} минут.\n\n'
+                                           f'Оплатите заказ либо откажитесь от оплаты.', parse_mode='HTML')
 
-                await state.set_state(PaymentState.order_paid_state)
-                await query.message.answer('Заказ оплачен!', reply_markup=None)
+            await state.set_state(PaymentState.last_order_has_not_been_paid)
+
+        current_state = await state.get_state()
+
+        return current_state

@@ -368,7 +368,7 @@ async def check_if_order_expired(order: Order) -> bool:
 
     now = int(time.time())
 
-    if now - order.created_at > ORDER_EXPIRATION_TIME:
+    if order and now - order.created_at > ORDER_EXPIRATION_TIME:
         return True
     return False
 
@@ -388,8 +388,9 @@ async def set_order_paid(order: Order) -> None:
 
 
 async def check_if_order_has_been_paid(order: Order) -> bool:
-
-    return order.paid
+    if order:
+        return order.paid
+    return False
 
 
 async def order_minutes_left(order: Order) -> int:
@@ -417,3 +418,19 @@ async def check_if_user_has_unpaid_orders(user_id: int, **kwargs) -> bool:
             return True
 
     return False
+
+
+@execute_transaction
+async def get_item_by_order_id(order_id: int, **kwargs) -> Item:
+
+    db_session = kwargs.pop('db_session')
+
+    stmt = select(Item).select_from(
+        join(Order, Item, Order.item_id == Item.id)
+    ).where(Order.id == order_id)
+
+    result = await db_session.execute(stmt)
+
+    item = result.scalar()
+
+    return item
