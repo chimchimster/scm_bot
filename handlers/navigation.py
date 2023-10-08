@@ -6,6 +6,7 @@ from states import *
 from keyboards import *
 from database import *
 from .common import *
+from filters import *
 from callback_data import *
 
 
@@ -15,7 +16,7 @@ router = Router()
 async def nav_menu_handler(
         message: Message,
 ):
-    await message.answer(text='Сразу к покупкам?', reply_markup=main_menu_markup())
+    await message.answer(text='Сразу к покупкам?', reply_markup= await main_menu_markup())
 
 
 @router.callback_query(
@@ -128,7 +129,15 @@ async def create_order_handler(query: CallbackQuery, state: FSMContext):
 
     order_info = await get_order_info(item_id, order_id, user_telegram_id)
 
-    await query.message.answer(text=order_info)
+    await state.update_data(order_id=order_id, user_id=user_id)
+    await state.set_state(PaymentState.order_created_state)
+    await query.message.answer(text=order_info, reply_markup=await confirm_payment_markup())
+
+
+@router.callback_query(PaymentSucceedFilter(), PaymentState.order_created_state)
+async def process_payment_handler(query: CallbackQuery, state: FSMContext):
+
+    await query.message.answer(text='hello')
 
 
 @router.callback_query(

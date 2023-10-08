@@ -13,4 +13,5 @@ __all__ = [
     'choose_item_markup',
     'choose_category_markup',
     'confirm_choice_markup',
+    'confirm_payment_markup',
 ]

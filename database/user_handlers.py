@@ -1,11 +1,10 @@
-import asyncio
 import time
 import secrets
 import hashlib
 
 from typing import Final, Union, List
 
-from sqlalchemy import select, update, func, join, and_, Row, Sequence, insert
+from sqlalchemy import select, update, func, join, and_, Row, Sequence, insert, desc
 from sqlalchemy.orm import joinedload
 
 from models import *
@@ -13,6 +12,7 @@ from .signals import Signal
 from .decorators import execute_transaction
 
 AUTH_TIME: Final[int] = 1800
+ORDER_EXPIRATION_TIME: Final[int] = 1800
 
 
 @execute_transaction
@@ -258,7 +258,8 @@ async def get_available_items(location_id: int, **kwargs) -> Union[Sequence[Row[
         select(Item.id, Item.title).select_from(
             join(Item, ItemCityAssociation, Item.id == ItemCityAssociation.item_id).
             join(City, ItemCityAssociation.city_id == City.id).
-            join(CityLocationAssociation, City.id == CityLocationAssociation.city_id)
+            join(CityLocationAssociation, City.id == CityLocationAssociation.city_id).
+            join(Location, CityLocationAssociation.location_id == Location.id)
         ).where(Location.id == location_id)
     )
 
@@ -333,7 +334,7 @@ async def get_item_category(
     stmt = select(Category).select_from(
         join(Category, ItemCategoryAssociation, Category.id == ItemCategoryAssociation.category_id).
         join(Item, ItemCategoryAssociation.item_id == Item.id)
-    )
+    ).where(Item.id == item_id)
     result = await db_session.execute(stmt)
 
     category = result.scalar()
@@ -341,3 +342,78 @@ async def get_item_category(
     return category
 
 
+@execute_transaction
+async def get_last_order(
+        user_id: int,
+        item_id: int,
+        **kwargs,
+) -> Union[Order, None]:
+
+    db_session = kwargs.pop('db_session')
+
+    stmt = select(Order).filter_by(
+        user_id=user_id, item_id=item_id
+    ).order_by(
+        desc(Order.created_at)
+    ).limit(1)
+
+    result = await db_session.execute(stmt)
+
+    order = result.scalar()
+
+    return order
+
+
+async def check_if_order_expired(order: Order) -> bool:
+
+    now = int(time.time())
+
+    if now - order.created_at > ORDER_EXPIRATION_TIME:
+        return True
+    return False
+
+
+async def set_order_expired(order: Order) -> None:
+
+    order.expired = True
+
+    await order.save()
+
+
+async def set_order_paid(order: Order) -> None:
+
+    order.paid = True
+
+    await order.save()
+
+
+async def check_if_order_has_been_paid(order: Order) -> bool:
+
+    return order.paid
+
+
+async def order_minutes_left(order: Order) -> int:
+
+    now = int(time.time())
+
+    all_time = order.created_at + ORDER_EXPIRATION_TIME
+
+    return (all_time - now) // 60
+
+
+@execute_transaction
+async def check_if_user_has_unpaid_orders(user_id: int, **kwargs) -> bool:
+
+    db_session = kwargs.pop('db_session')
+
+    stmt = select(Order).filter_by(user_id=user_id).order_by(desc(Order.created_at)).limit(1)
+    result = await db_session.execute(stmt)
+    order = result.scalar()
+
+    if order:
+        expired = await check_if_order_expired(order)
+        paid = await check_if_order_has_been_paid(order)
+        if not expired and not paid:
+            return True
+
+    return False

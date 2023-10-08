@@ -27,4 +27,11 @@ __all__ = [
     'create_order',
     'get_item',
     'get_item_category',
+    'check_if_order_has_been_paid',
+    'check_if_order_expired',
+    'set_order_paid',
+    'set_order_expired',
+    'get_last_order',
+    'order_minutes_left',
+    'check_if_user_has_unpaid_orders',
 ]

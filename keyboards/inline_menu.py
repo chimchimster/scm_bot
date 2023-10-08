@@ -6,7 +6,7 @@ from database import *
 from callback_data import *
 
 
-def main_menu_markup() -> InlineKeyboardMarkup:
+async def main_menu_markup() -> InlineKeyboardMarkup:
 
     show_account_info_button = InlineKeyboardButton(text='К аккаунту', callback_data='to_account_handler')
     to_purchases_button = InlineKeyboardButton(text='К покупкам', callback_data='to_purchases_handler')
@@ -84,6 +84,18 @@ async def confirm_choice_markup() -> InlineKeyboardMarkup:
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[confirm_choice_button, refuse_choice_button]]
+    )
+
+    return keyboard
+
+
+async def confirm_payment_markup() -> InlineKeyboardMarkup:
+
+    confirm_payment_button = InlineKeyboardButton(text='Я оплатил', callback_data='confirm_payment')
+    refuse_payment_button = InlineKeyboardButton(text='Отказаться', callback_data='refuse_payment')
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[confirm_payment_button, refuse_payment_button]]
     )
 
     return keyboard
