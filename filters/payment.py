@@ -4,6 +4,7 @@ from aiogram.types import CallbackQuery
 
 from database import *
 from states import *
+from keyboards import *
 
 
 class PaymentSucceedFilter(BaseFilter):
@@ -12,22 +13,28 @@ class PaymentSucceedFilter(BaseFilter):
 
         data = await state.get_data()
 
-        item_id = data.get('item_id')
         user_id = data.get('user_id')
 
-        last_order = await get_last_order(user_id, item_id)
+        last_order = await get_last_order(user_id)
 
-        order_has_been_expired = await check_if_order_expired(last_order)
+        if last_order:
 
-        if order_has_been_expired:
+            order_has_been_expired = await check_if_order_expired(last_order)
+            has_unpaid_order = await check_if_user_has_unpaid_order(user_id)
 
-            await set_order_expired(last_order)
+            if order_has_been_expired:
 
-            await state.set_state(PaymentState.order_expired_state)
+                await set_order_expired(last_order.id)
 
-        else:
+                await state.set_state(PaymentState.order_expired_state)
 
-            await state.set_state(PaymentState.order_paid_state)
+            elif has_unpaid_order:
+
+                await state.set_state(PaymentState.last_order_has_not_been_paid)
+
+            else:
+
+                await state.set_state(PaymentState.order_paid_state)
 
         current_state = await state.get_state()
 
@@ -39,29 +46,48 @@ class BlockUnpaidOrderFilter(BaseFilter):
 
         data = await state.get_data()
 
-        item_id = data.get('item_id')
         user_id = data.get('user_id')
 
-        last_order = await get_last_order(user_id, item_id)
+        last_order = await get_last_order(user_id)
 
-        has_unpaid_orders = await check_if_user_has_unpaid_orders(user_id)
+        if last_order:
 
-        if has_unpaid_orders:
+            has_unpaid_order = await check_if_user_has_unpaid_order(user_id)
 
-            order_has_been_payed = await check_if_order_has_been_paid(last_order)
-
-            if not order_has_been_payed:
+            if has_unpaid_order:
 
                 minutes_left = await order_minutes_left(last_order)
 
                 last_order_item = await get_item_by_order_id(last_order.id)
 
                 await query.message.answer(f'У вас есть неоплаченный заказ {last_order_item.title}.\n\n'
-                                           f'На сумму {last_order_item.price}\n\n'
+                                           f'На сумму {round(last_order_item.price, 2)}₽\n\n'
                                            f'Для оплаты заказа у вас осталось {minutes_left} минут.\n\n'
-                                           f'Оплатите заказ либо откажитесь от оплаты.', parse_mode='HTML')
+                                           f'Оплатите заказ либо откажитесь от оплаты.',
+                                           parse_mode='HTML',
+                                           reply_markup=await confirm_payment_markup(),
+                                           )
 
-            await state.set_state(PaymentState.last_order_has_not_been_paid)
+                await state.set_state(PaymentState.last_order_has_not_been_paid)
+
+        current_state = await state.get_state()
+
+        return current_state
+
+
+class ClearLastOrderFilter(BaseFilter):
+
+    async def __call__(self, query: CallbackQuery, state: FSMContext):
+
+        data = await state.get_data()
+
+        user_id = data.get('user_id')
+
+        last_order = await get_last_order(user_id)
+
+        if last_order:
+
+            await set_order_expired(last_order.id)
 
         current_state = await state.get_state()
 

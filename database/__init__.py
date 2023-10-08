@@ -33,6 +33,6 @@ __all__ = [
     'set_order_expired',
     'get_last_order',
     'order_minutes_left',
-    'check_if_user_has_unpaid_orders',
+    'check_if_user_has_unpaid_order',
     'get_item_by_order_id',
 ]

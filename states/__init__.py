@@ -2,6 +2,7 @@ from .authentication import *
 from .navigation import *
 from .admin_panel import *
 from .payment import *
+from .delivery import *
 
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     'AdminState',
     'AddItemState',
     'PaymentState',
+    'DeliveryItemState',
 ]

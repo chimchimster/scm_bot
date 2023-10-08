@@ -345,15 +345,12 @@ async def get_item_category(
 @execute_transaction
 async def get_last_order(
         user_id: int,
-        item_id: int,
         **kwargs,
 ) -> Union[Order, None]:
 
     db_session = kwargs.pop('db_session')
 
-    stmt = select(Order).filter_by(
-        user_id=user_id, item_id=item_id
-    ).order_by(
+    stmt = select(Order).filter_by(user_id=user_id).order_by(
         desc(Order.created_at)
     ).limit(1)
 
@@ -368,23 +365,29 @@ async def check_if_order_expired(order: Order) -> bool:
 
     now = int(time.time())
 
-    if order and now - order.created_at > ORDER_EXPIRATION_TIME:
+    if order and (now - order.created_at > ORDER_EXPIRATION_TIME or order.expired):
         return True
     return False
 
 
-async def set_order_expired(order: Order) -> None:
+@execute_transaction
+async def set_order_expired(order_id: int, **kwargs) -> None:
 
-    order.expired = True
+    db_session = kwargs.pop('db_session')
 
-    await order.save()
+    stmt = update(Order).where(Order.id == order_id).values(expired=True)
+
+    await db_session.execute(stmt)
 
 
-async def set_order_paid(order: Order) -> None:
+@execute_transaction
+async def set_order_paid(order_id: int, **kwargs) -> None:
 
-    order.paid = True
+    db_session = kwargs.pop('db_session')
 
-    await order.save()
+    stmt = update(Order).where(Order.id == order_id).values(paid=True)
+
+    await db_session.execute(stmt)
 
 
 async def check_if_order_has_been_paid(order: Order) -> bool:
@@ -403,7 +406,7 @@ async def order_minutes_left(order: Order) -> int:
 
 
 @execute_transaction
-async def check_if_user_has_unpaid_orders(user_id: int, **kwargs) -> bool:
+async def check_if_user_has_unpaid_order(user_id: int, **kwargs) -> bool:
 
     db_session = kwargs.pop('db_session')
 
@@ -412,8 +415,10 @@ async def check_if_user_has_unpaid_orders(user_id: int, **kwargs) -> bool:
     order = result.scalar()
 
     if order:
+
         expired = await check_if_order_expired(order)
         paid = await check_if_order_has_been_paid(order)
+
         if not expired and not paid:
             return True
 

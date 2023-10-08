@@ -116,10 +116,27 @@ async def payment_start_handler(query: CallbackQuery, state: FSMContext):
 
     current_state = await state.get_state()
 
-    if current_state != PaymentState.last_order_has_not_been_paid:
-        await state.set_state(PaymentState.create_order_state)
+    if current_state == PaymentState.last_order_has_not_been_paid:
+        pass
     else:
+        await state.set_state(PaymentState.create_order_state)
         await query.message.answer(text='Подтвердить выбор?', reply_markup=await confirm_choice_markup())
+
+
+@router.callback_query(
+    PaymentSucceedFilter(),
+    PaymentState.last_order_has_not_been_paid,
+    lambda callback_name: callback_name.data == 'confirm_payment',
+)
+async def last_order_has_not_been_paid_handler(query: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+
+    if current_state == PaymentState.order_expired_state:
+        await state.clear()
+        await query.message.answer('Заказ просрочен!')
+    elif current_state == PaymentState.order_paid_state:
+        await state.set_state(DeliveryItemState.available_for_delivery)
+        await query.message.answer('Заказ оплачен!')
 
 
 @router.callback_query(
@@ -152,7 +169,11 @@ async def create_order_handler(query: CallbackQuery, state: FSMContext):
     await query.message.answer(text=order_info, reply_markup=await confirm_payment_markup())
 
 
-@router.callback_query(PaymentSucceedFilter(), PaymentState.order_created_state)
+@router.callback_query(
+    PaymentSucceedFilter(),
+    PaymentState.order_created_state,
+    lambda callback_name: callback_name.data == 'confirm_payment',
+)
 async def process_payment_handler(query: CallbackQuery, state: FSMContext):
 
     current_state = await state.get_state()
@@ -161,6 +182,17 @@ async def process_payment_handler(query: CallbackQuery, state: FSMContext):
         await query.message.answer('Заказ просрочен!')
     elif current_state == PaymentState.order_paid_state:
         await query.message.answer('Заказ оплачен!')
+
+
+@router.callback_query(
+    ClearLastOrderFilter(),
+    lambda callback_name: callback_name.data == 'refuse_payment'
+)
+async def refuse_payment_handler(query: CallbackQuery, state: FSMContext):
+
+    await state.set_state(NavigationState.main_menu_state)
+    await query.message.answer('Вы отказались от заказа!')
+    await nav_menu_handler(query.message)
 
 
 @router.callback_query(
