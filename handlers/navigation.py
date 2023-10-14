@@ -37,7 +37,7 @@ async def to_account_handler(
 
     await query.message.answer(text=personal_account_info)
 
-    await state.update_data(callbacks_stack=[])
+    await state.update_data()
 
 
 @router.callback_query(
@@ -58,27 +58,52 @@ async def return_to_previous_callback_handler(query: CallbackQuery, state: FSMCo
 
     data = await state.get_data()
 
-    prev_callback = data.get('prev_callback')
+    prev_callbacks = data.get('callbacks')
+    callback_index = len(prev_callbacks) - 1
 
-    match prev_callback.split(':')[0]:
-        case 'city':
-            await state.set_state(NavigationState.main_menu_state)
-            await choose_city_handler(query, state, prev_callback=prev_callback)
-        case 'location':
-            await state.set_state(NavigationState.choose_location_state)
-            await choose_location_handler(query, state, prev_callback=prev_callback)
-        case 'item':
-            await state.set_state(NavigationState.choose_item_state)
-            await choose_item_handler(query, state, prev_callback=prev_callback)
-        case 'category':
-            await state.set_state(NavigationState.choose_item_category_state)
-            await choose_category_handler(query, state, prev_callback=prev_callback)
+    if callback_index > 0:
+
+        callback_index -= 1
+
+        prev_callback = prev_callbacks[callback_index]
+
+        await state.update_data(callback_index=callback_index, callbacks=prev_callbacks)
+
+        match prev_callback.split(':')[0]:
+            case 'city':
+                await state.set_state(NavigationState.main_menu_state)
+                await choose_city_handler(
+                    query,
+                    state,
+                    flag=True,
+                )
+            case 'location':
+                await state.set_state(NavigationState.choose_location_state)
+                await choose_location_handler(
+                    query,
+                    state,
+                    flag=True,
+                )
+            case 'item':
+                await state.set_state(NavigationState.choose_item_state)
+                await choose_item_handler(
+                    query,
+                    state,
+                    flag=True,
+                )
+            case 'category':
+                await state.set_state(NavigationState.choose_item_category_state)
+                await choose_category_handler(
+                    query,
+                    state,
+                    flag=True,
+                )
 
 
 @router.callback_query(
     NavigationState.choose_city_state,
 )
-async def choose_city_handler(query: CallbackQuery, state: FSMContext, **kwargs):
+async def choose_city_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
 
     user_telegram_id = query.from_user.id
 
@@ -87,73 +112,100 @@ async def choose_city_handler(query: CallbackQuery, state: FSMContext, **kwargs)
 
     await query.message.answer('Выберите город', reply_markup=await choose_city_markup())
 
-    await state.update_data(user_id=user_id)
+    await state.update_data(user_id=user_id, callbacks=[], callback_index=0)
     await state.set_state(NavigationState.choose_location_state)
 
 
 @router.callback_query(
     NavigationState.choose_location_state,
 )
-async def choose_location_handler(query: CallbackQuery, state: FSMContext, **kwargs):
+async def choose_location_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
 
-    prev_callback = kwargs.get('prev_callback')
+    data = await state.get_data()
 
-    if not prev_callback:
-        callback_data = CityCallback.unpack(query.data)
-        prev_callback = query.data
+    callback_index = data.get('callback_index')
+
+    callbacks = data.get('callbacks')
+
+    if flag:
+        callback_data = LocationCallback.unpack(callbacks[callback_index])
     else:
-        callback_data = LocationCallback.unpack(prev_callback)
+        callback_data = CityCallback.unpack(query.data)
+        callbacks.append(callback_data.pack())
+    print(callbacks)
+    await state.update_data(callback_index=callback_index + 1)
 
     city_id = callback_data.id
     city_title = callback_data.title
 
     await query.message.answer('Выберите локацию', reply_markup=await choose_location_markup(city_id))
 
-    await state.update_data(city_id=city_id, city_title=city_title, prev_callback=prev_callback)
+    await state.update_data(
+        city_id=city_id,
+        city_title=city_title,
+    )
     await state.set_state(NavigationState.choose_item_state)
 
 
 @router.callback_query(
     NavigationState.choose_item_state,
 )
-async def choose_item_handler(query: CallbackQuery, state: FSMContext, **kwargs):
+async def choose_item_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
 
-    prev_callback = kwargs.get('prev_callback')
+    data = await state.get_data()
 
-    if not prev_callback:
-        callback_data = LocationCallback.unpack(query.data)
-        prev_callback = query.data
+    callback_index = data.get('callback_index')
+
+    callbacks = data.get('callbacks')
+
+    if flag:
+        callback_data = ItemCallback.unpack(callbacks[callback_index])
     else:
-        callback_data = ItemCallback.unpack(prev_callback)
+        callback_data = LocationCallback.unpack(query.data)
+        callbacks.append(callback_data.pack())
+    print(callbacks)
+    await state.update_data(callback_index=callback_index + 1)
 
     location_id = callback_data.id
     location_title = callback_data.title
 
     await query.message.answer('Выберите товар', reply_markup=await choose_item_markup(location_id))
 
-    await state.update_data(location_id=location_id, location_title=location_title, prev_callback=prev_callback)
+    await state.update_data(
+        location_id=location_id,
+        location_title=location_title,
+    )
     await state.set_state(NavigationState.choose_item_category_state)
 
 
 @router.callback_query(
     NavigationState.choose_item_category_state,
 )
-async def choose_category_handler(query: CallbackQuery, state: FSMContext, **kwargs):
+async def choose_category_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
 
-    prev_callback = kwargs.get('prev_callback')
+    data = await state.get_data()
 
-    if not prev_callback:
-        callback_data = ItemCallback.unpack(query.data)
-        prev_callback = query.data
+    callback_index = data.get('callback_index')
+
+    callbacks = data.get('callbacks')
+
+    if flag:
+        callback_data = CategoryCallback.unpack(callbacks[callback_index])
     else:
-        callback_data = CategoryCallback.unpack(prev_callback)
+        callback_data = ItemCallback.unpack(query.data)
+        callbacks.append(callback_data.pack())
+    print(callbacks)
+    await state.update_data(callback_index=callback_index + 1)
 
     item_id = callback_data.id
     item_title = callback_data.title
 
     await query.message.answer('Выберите категорию', reply_markup=await choose_category_markup(item_id))
 
-    await state.update_data(item_id=item_id, item_title=item_title, prev_callback=prev_callback)
+    await state.update_data(
+        item_id=item_id,
+        item_title=item_title,
+    )
     await state.set_state(PaymentState.begin_order_state)
 
 
