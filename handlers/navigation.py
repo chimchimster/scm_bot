@@ -1,4 +1,5 @@
 from aiogram import Router
+from aiogram.filters import or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
@@ -102,15 +103,15 @@ async def choose_category_handler(query: CallbackQuery, state: FSMContext):
     item_id = callback_data.id
     item_title = callback_data.title
 
-    await query.message.answer('Выберите категорию', reply_markup= await choose_category_markup(item_id))
+    await query.message.answer('Выберите категорию', reply_markup=await choose_category_markup(item_id))
 
     await state.update_data(item_id=item_id, item_title=item_title)
     await state.set_state(PaymentState.begin_order_state)
 
 
 @router.callback_query(
-    BlockUnpaidOrderFilter(),
     PaymentState.begin_order_state,
+    BlockUnpaidOrderFilter(),
 )
 async def payment_start_handler(query: CallbackQuery, state: FSMContext):
 
@@ -121,22 +122,6 @@ async def payment_start_handler(query: CallbackQuery, state: FSMContext):
     else:
         await state.set_state(PaymentState.create_order_state)
         await query.message.answer(text='Подтвердить выбор?', reply_markup=await confirm_choice_markup())
-
-
-@router.callback_query(
-    PaymentSucceedFilter(),
-    PaymentState.last_order_has_not_been_paid,
-    lambda callback_name: callback_name.data == 'confirm_payment',
-)
-async def last_order_has_not_been_paid_handler(query: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-
-    if current_state == PaymentState.order_expired_state:
-        await state.clear()
-        await query.message.answer('Заказ просрочен!')
-    elif current_state == PaymentState.order_paid_state:
-        await state.set_state(DeliveryItemState.available_for_delivery)
-        await query.message.answer('Заказ оплачен!')
 
 
 @router.callback_query(
@@ -171,7 +156,7 @@ async def create_order_handler(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(
     PaymentSucceedFilter(),
-    PaymentState.order_created_state,
+    or_f(PaymentState.order_created_state, PaymentState.last_order_has_not_been_paid),
     lambda callback_name: callback_name.data == 'confirm_payment',
 )
 async def process_payment_handler(query: CallbackQuery, state: FSMContext):
@@ -182,11 +167,28 @@ async def process_payment_handler(query: CallbackQuery, state: FSMContext):
         await query.message.answer('Заказ просрочен!')
     elif current_state == PaymentState.order_paid_state:
         await query.message.answer('Заказ оплачен!')
+    elif current_state == PaymentState.last_order_has_not_been_paid:
 
+        data = await state.get_data()
 
+        user_id = data.get('user_id')
+
+        last_order = await get_last_order(user_id)
+
+        minutes_left = await order_minutes_left(last_order)
+
+        last_order_item = await get_item_by_order_id(last_order.id)
+
+        await query.message.answer(f'У вас есть неоплаченный заказ {last_order_item.title}.\n\n'
+                                   f'На сумму {round(last_order_item.price, 2)}₽\n\n'
+                                   f'Для оплаты заказа у вас осталось {minutes_left} минут.\n\n'
+                                   f'Оплатите заказ либо откажитесь от оплаты.',
+                                   parse_mode='HTML',
+                                   reply_markup=await confirm_payment_markup(),
+                                   )
 @router.callback_query(
     ClearLastOrderFilter(),
-    lambda callback_name: callback_name.data == 'refuse_payment'
+    lambda callback_name: callback_name.data == 'refuse_payment',
 )
 async def refuse_payment_handler(query: CallbackQuery, state: FSMContext):
 

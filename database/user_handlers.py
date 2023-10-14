@@ -351,7 +351,7 @@ async def get_last_order(
     db_session = kwargs.pop('db_session')
 
     stmt = select(Order).filter_by(user_id=user_id).order_by(
-        desc(Order.created_at)
+        desc(Order.id)
     ).limit(1)
 
     result = await db_session.execute(stmt)
@@ -368,7 +368,6 @@ async def check_if_order_expired(order: Order) -> bool:
     if order and (now - order.created_at > ORDER_EXPIRATION_TIME or order.expired):
         return True
     return False
-
 
 @execute_transaction
 async def set_order_expired(order_id: int, **kwargs) -> None:
@@ -410,16 +409,15 @@ async def check_if_user_has_unpaid_order(user_id: int, **kwargs) -> bool:
 
     db_session = kwargs.pop('db_session')
 
-    stmt = select(Order).filter_by(user_id=user_id).order_by(desc(Order.created_at)).limit(1)
+    stmt = select(Order).filter_by(user_id=user_id).order_by(desc(Order.id)).limit(1)
     result = await db_session.execute(stmt)
     order = result.scalar()
 
     if order:
 
-        expired = await check_if_order_expired(order)
         paid = await check_if_order_has_been_paid(order)
 
-        if not expired and not paid:
+        if not paid:
             return True
 
     return False
