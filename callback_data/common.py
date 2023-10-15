@@ -19,4 +19,3 @@ class ItemCallback(CallbackData, prefix='item'):
 class CategoryCallback(CallbackData, prefix='category'):
     id: int
     title: str
-

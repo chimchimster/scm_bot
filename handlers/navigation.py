@@ -1,3 +1,5 @@
+from typing import Dict
+
 from aiogram import Router
 from aiogram.filters import or_f
 from aiogram.fsm.context import FSMContext
@@ -12,6 +14,15 @@ from callback_data import *
 
 
 router = Router()
+
+state_to_callback_data = {
+    NavigationState.choose_location_state: CityCallback,
+    NavigationState.choose_item_state: CityCallback,
+    NavigationState.choose_item_category_state: LocationCallback,
+    PaymentState.begin_order_state: CategoryCallback,
+}
+
+PREV_CALLBACK_MEM = {}
 
 
 async def nav_menu_handler(
@@ -56,54 +67,58 @@ async def to_purchase_handler(query: CallbackQuery, state: FSMContext):
 )
 async def return_to_previous_callback_handler(query: CallbackQuery, state: FSMContext):
 
+    user_telegram_id = query.from_user.id
+
     data = await state.get_data()
 
-    prev_callbacks = data.get('callbacks')
-    callback_index = len(prev_callbacks) - 1
+    user_prev_callbacks = data.get('previous_callbacks')
+    print(user_prev_callbacks)
+    if user_prev_callbacks:
+        callbacks_data = user_prev_callbacks.get(user_telegram_id)
 
-    if callback_index > 0:
+        callbacks = callbacks_data.get('callbacks_data')
+        states = callbacks_data.get('states')
 
-        callback_index -= 1
+        if callbacks and states:
 
-        prev_callback = prev_callbacks[callback_index]
+            prev_callback_data = callbacks.pop()
+            prev_state = states.pop()
+            print(prev_callback_data, prev_state)
+            callback_data_class = state_to_callback_data.get(prev_state)
 
-        await state.update_data(callback_index=callback_index, callbacks=prev_callbacks)
+            prefix = prev_callback_data.__prefix__
+            print(prefix)
+            callback_data = callback_data_class(
+                id=data.get(f'{prefix}_id'),
+                title=data.get(f'{prefix}_title')
+            )
 
-        match prev_callback.split(':')[0]:
-            case 'city':
-                await state.set_state(NavigationState.main_menu_state)
-                await choose_city_handler(
-                    query,
-                    state,
-                    flag=True,
-                )
-            case 'location':
-                await state.set_state(NavigationState.choose_location_state)
-                await choose_location_handler(
-                    query,
-                    state,
-                    flag=True,
-                )
-            case 'item':
-                await state.set_state(NavigationState.choose_item_state)
-                await choose_item_handler(
-                    query,
-                    state,
-                    flag=True,
-                )
-            case 'category':
-                await state.set_state(NavigationState.choose_item_category_state)
-                await choose_category_handler(
-                    query,
-                    state,
-                    flag=True,
-                )
+            updated_query = query.model_copy(update={'data': callback_data.pack()})
+
+            await state.set_state(prev_state)
+
+            await execute_previous_handler(updated_query, state, prefix)
+        else:
+            await nav_menu_handler(query.message)
+
+
+async def execute_previous_handler(query: CallbackQuery, state: FSMContext, prefix: str):
+
+    match prefix:
+        case 'city':
+            await choose_city_handler(query, state)
+        case 'location':
+            await choose_location_handler(query, state)
+        case 'item':
+            await choose_item_handler(query, state)
+        case 'category':
+            await choose_category_handler(query, state)
 
 
 @router.callback_query(
     NavigationState.choose_city_state,
 )
-async def choose_city_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
+async def choose_city_handler(query: CallbackQuery, state: FSMContext):
 
     user_telegram_id = query.from_user.id
 
@@ -112,90 +127,83 @@ async def choose_city_handler(query: CallbackQuery, state: FSMContext, flag: boo
 
     await query.message.answer('Выберите город', reply_markup=await choose_city_markup())
 
-    await state.update_data(user_id=user_id, callbacks=[], callback_index=0)
+    user_prev_callbacks = {user_telegram_id: {'states': [], 'callbacks_data': []}}
+    PREV_CALLBACK_MEM.update(user_prev_callbacks)
+
+    await state.update_data(user_id=user_id, previous_callbacks=PREV_CALLBACK_MEM)
     await state.set_state(NavigationState.choose_location_state)
 
 
 @router.callback_query(
     NavigationState.choose_location_state,
 )
-async def choose_location_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
+async def choose_location_handler(query: CallbackQuery, state: FSMContext):
 
-    data = await state.get_data()
+    user_telegram_id = query.from_user.id
 
-    callback_index = data.get('callback_index')
-
-    callbacks = data.get('callbacks')
-
-    if flag:
-        callback_data = LocationCallback.unpack(callbacks[callback_index])
-    else:
-        callback_data = CityCallback.unpack(query.data)
-        callbacks.append(callback_data.pack())
-    print(callbacks)
-    await state.update_data(callback_index=callback_index + 1)
+    callback_data = CityCallback.unpack(query.data)
 
     city_id = callback_data.id
     city_title = callback_data.title
 
     await query.message.answer('Выберите локацию', reply_markup=await choose_location_markup(city_id))
 
-    await state.update_data(
-        city_id=city_id,
-        city_title=city_title,
-    )
+    await state.update_data(city_id=city_id, city_title=city_title)
+
+    current_state = await state.get_state()
+
+    data = await state.get_data()
+
+    previous_callbacks: Dict = data.get('previous_callbacks')
+
+    prev_callback = previous_callbacks.get(user_telegram_id)
+
+    if prev_callback:
+        prev_callback['states'].append(current_state)
+        prev_callback['callbacks_data'].append(callback_data)
+
     await state.set_state(NavigationState.choose_item_state)
 
 
 @router.callback_query(
     NavigationState.choose_item_state,
 )
-async def choose_item_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
+async def choose_item_handler(query: CallbackQuery, state: FSMContext):
 
-    data = await state.get_data()
+    user_telegram_id = query.from_user.id
 
-    callback_index = data.get('callback_index')
-
-    callbacks = data.get('callbacks')
-
-    if flag:
-        callback_data = ItemCallback.unpack(callbacks[callback_index])
-    else:
-        callback_data = LocationCallback.unpack(query.data)
-        callbacks.append(callback_data.pack())
-    print(callbacks)
-    await state.update_data(callback_index=callback_index + 1)
+    callback_data = LocationCallback.unpack(query.data)
 
     location_id = callback_data.id
     location_title = callback_data.title
 
     await query.message.answer('Выберите товар', reply_markup=await choose_item_markup(location_id))
 
-    await state.update_data(
-        location_id=location_id,
-        location_title=location_title,
-    )
+    await state.update_data(location_id=location_id, location_title=location_title)
+
+    current_state = await state.get_state()
+
+    data = await state.get_data()
+
+    previous_callbacks: Dict = data.get('previous_callbacks')
+
+    prev_callback = previous_callbacks.get(user_telegram_id)
+
+    if prev_callback:
+        prev_callback['states'].append(current_state)
+        prev_callback['callbacks_data'].append(callback_data)
+
     await state.set_state(NavigationState.choose_item_category_state)
 
 
 @router.callback_query(
     NavigationState.choose_item_category_state,
 )
-async def choose_category_handler(query: CallbackQuery, state: FSMContext, flag: bool = None):
+async def choose_category_handler(query: CallbackQuery, state: FSMContext):
 
-    data = await state.get_data()
+    user_telegram_id = query.from_user.id
 
-    callback_index = data.get('callback_index')
-
-    callbacks = data.get('callbacks')
-
-    if flag:
-        callback_data = CategoryCallback.unpack(callbacks[callback_index])
-    else:
-        callback_data = ItemCallback.unpack(query.data)
-        callbacks.append(callback_data.pack())
-    print(callbacks)
-    await state.update_data(callback_index=callback_index + 1)
+    callback_data = ItemCallback.unpack(query.data)
 
     item_id = callback_data.id
     item_title = callback_data.title
@@ -206,6 +214,19 @@ async def choose_category_handler(query: CallbackQuery, state: FSMContext, flag:
         item_id=item_id,
         item_title=item_title,
     )
+
+    current_state = await state.get_state()
+
+    data = await state.get_data()
+
+    previous_callbacks: Dict = data.get('previous_callbacks')
+
+    prev_callback = previous_callbacks.get(user_telegram_id)
+
+    if prev_callback:
+        prev_callback['states'].append(current_state)
+        prev_callback['callbacks_data'].append(callback_data)
+
     await state.set_state(PaymentState.begin_order_state)
 
 
@@ -214,12 +235,6 @@ async def choose_category_handler(query: CallbackQuery, state: FSMContext, flag:
     BlockUnpaidOrderFilter(),
 )
 async def payment_start_handler(query: CallbackQuery, state: FSMContext):
-
-    data = await state.get_data()
-
-    prev_callback = data.get('prev_callback')
-
-    await state.update_data(prev_callback=prev_callback)
 
     current_state = await state.get_state()
 
