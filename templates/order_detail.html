@@ -1,5 +1,19 @@
-<b>Заказ № {{ id }}</b>
-<b>Пользователь: {{ username }}</b>
-<b>Товар: {{ title }}</b>
-<b>Категория: {{ category }}</b>
-<b>На сумму: {{ total_cost }}</b>
+🎉 <b>Заказ № {{ id }}</b> 🎉
+
+👤 <i>Пользователь:</i> <code>{{ username }}</code> 👤
+
+📦 <i>Товар:</i> <code>{{ title }}</code> 📦
+
+🏷 <i>Категория:</i> <code>{{ category }}</code> 🏷
+
+💰 <i>На сумму:</i> <code>{{ total_cost|round_float_value }}₽</code> 💰
+
+<b>👇</b> Нажми чтобы увидеть реквезиты <b>👇</b>
+
+                <b>💵</b> Биткоин/BTS <b>💵</b>
+
+<tg-spoiler>реквизиты для оплаты</tg-spoiler>
+
+                <b>💳</b> Visa/Mastercard  <b>💳</b>
+
+<tg-spoiler>реквизиты для оплаты</tg-spoiler>
