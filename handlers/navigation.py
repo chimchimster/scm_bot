@@ -17,9 +17,9 @@ from callback_data import *
 router = Router()
 
 state_to_callback_data = {
+    NavigationState.choose_location_state: CityCallback,
     NavigationState.choose_item_state: CityCallback,
-    NavigationState.choose_item_category_state: CityCallback,
-    PaymentState.begin_order_state: ItemCallback,
+    NavigationState.choose_item_category_state: LocationCallback,
 }
 
 PREV_CALLBACK_MEM = {}
@@ -72,7 +72,7 @@ async def return_to_previous_callback_handler(query: CallbackQuery, state: FSMCo
     data = await state.get_data()
 
     user_prev_callbacks = data.get('previous_callbacks')
-    print(user_prev_callbacks)
+
     if user_prev_callbacks:
         callbacks_data = user_prev_callbacks.get(user_telegram_id)
 
@@ -83,11 +83,11 @@ async def return_to_previous_callback_handler(query: CallbackQuery, state: FSMCo
 
             prev_callback_data = callbacks.pop()
             prev_state = states.pop()
-            print(prev_callback_data, prev_state)
+
             callback_data_class = state_to_callback_data.get(prev_state)
 
             prefix = prev_callback_data.__prefix__
-            print(prefix)
+
             callback_data = callback_data_class(
                 id=data.get(f'{prefix}_id'),
                 title=data.get(f'{prefix}_title')
@@ -108,11 +108,12 @@ async def execute_previous_handler(query: CallbackQuery, state: FSMContext, pref
         case 'city':
             await choose_city_handler(query, state)
         case 'location':
-            await choose_location_handler(query, state)
+            try:
+                await choose_location_handler(query, state)
+            except ValueError:
+                await return_to_previous_callback_handler(query, state)
         case 'item':
             await choose_item_handler(query, state)
-        case 'category':
-            await choose_category_handler(query, state)
 
 
 @router.callback_query(
@@ -156,7 +157,7 @@ async def push_previous_callback(
 async def choose_location_handler(query: CallbackQuery, state: FSMContext):
 
     user_telegram_id = query.from_user.id
-    print(query.data)
+
     callback_data = CityCallback.unpack(query.data)
 
     city_id = callback_data.id
