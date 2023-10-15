@@ -2,6 +2,7 @@ from typing import Dict
 
 from aiogram import Router
 from aiogram.filters import or_f
+from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, Update
 
@@ -16,10 +17,9 @@ from callback_data import *
 router = Router()
 
 state_to_callback_data = {
-    NavigationState.choose_location_state: CityCallback,
     NavigationState.choose_item_state: CityCallback,
-    NavigationState.choose_item_category_state: LocationCallback,
-    PaymentState.begin_order_state: CategoryCallback,
+    NavigationState.choose_item_category_state: CityCallback,
+    PaymentState.begin_order_state: ItemCallback,
 }
 
 PREV_CALLBACK_MEM = {}
@@ -134,13 +134,29 @@ async def choose_city_handler(query: CallbackQuery, state: FSMContext):
     await state.set_state(NavigationState.choose_location_state)
 
 
+async def push_previous_callback(
+        user_telegram_id: int,
+        callback_data: CallbackData,
+        data: Dict,
+        current_state: str,
+) -> None:
+
+    previous_callbacks: Dict = data.get('previous_callbacks')
+
+    prev_callback = previous_callbacks.get(user_telegram_id)
+
+    if prev_callback:
+        prev_callback['states'].append(current_state)
+        prev_callback['callbacks_data'].append(callback_data)
+
+
 @router.callback_query(
     NavigationState.choose_location_state,
 )
 async def choose_location_handler(query: CallbackQuery, state: FSMContext):
 
     user_telegram_id = query.from_user.id
-
+    print(query.data)
     callback_data = CityCallback.unpack(query.data)
 
     city_id = callback_data.id
@@ -154,13 +170,7 @@ async def choose_location_handler(query: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    previous_callbacks: Dict = data.get('previous_callbacks')
-
-    prev_callback = previous_callbacks.get(user_telegram_id)
-
-    if prev_callback:
-        prev_callback['states'].append(current_state)
-        prev_callback['callbacks_data'].append(callback_data)
+    await push_previous_callback(user_telegram_id, callback_data, data, current_state)
 
     await state.set_state(NavigationState.choose_item_state)
 
@@ -185,13 +195,7 @@ async def choose_item_handler(query: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    previous_callbacks: Dict = data.get('previous_callbacks')
-
-    prev_callback = previous_callbacks.get(user_telegram_id)
-
-    if prev_callback:
-        prev_callback['states'].append(current_state)
-        prev_callback['callbacks_data'].append(callback_data)
+    await push_previous_callback(user_telegram_id, callback_data, data, current_state)
 
     await state.set_state(NavigationState.choose_item_category_state)
 
@@ -219,13 +223,7 @@ async def choose_category_handler(query: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    previous_callbacks: Dict = data.get('previous_callbacks')
-
-    prev_callback = previous_callbacks.get(user_telegram_id)
-
-    if prev_callback:
-        prev_callback['states'].append(current_state)
-        prev_callback['callbacks_data'].append(callback_data)
+    await push_previous_callback(user_telegram_id, callback_data, data, current_state)
 
     await state.set_state(PaymentState.begin_order_state)
 
