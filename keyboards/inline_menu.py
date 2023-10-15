@@ -80,7 +80,7 @@ async def choose_category_markup(item_id: int) -> InlineKeyboardMarkup:
 async def confirm_choice_markup() -> InlineKeyboardMarkup:
 
     confirm_choice_button = InlineKeyboardButton(text='Да', callback_data='confirm_choice')
-    refuse_choice_button = InlineKeyboardButton(text='Назад', callback_data='return_to_previous_callback')
+    refuse_choice_button = InlineKeyboardButton(text='Назад', callback_data='refuse_choice')
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[confirm_choice_button, refuse_choice_button]]

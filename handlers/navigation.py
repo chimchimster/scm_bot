@@ -231,6 +231,15 @@ async def choose_category_handler(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
+    lambda callback_name: callback_name.data == 'refuse_choice'
+)
+async def refuse_choice_handler(query: CallbackQuery, state: FSMContext):
+
+    await state.clear()
+    await to_purchase_handler(query, state)
+
+
+@router.callback_query(
     PaymentState.begin_order_state,
     BlockUnpaidOrderFilter(),
 )
