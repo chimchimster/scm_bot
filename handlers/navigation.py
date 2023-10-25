@@ -4,14 +4,15 @@ from aiogram import Router
 from aiogram.filters import or_f
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, Update
+from aiogram.types import Message, CallbackQuery
 
 from states import *
 from keyboards import *
 from database import *
-from .common import *
 from filters import *
 from callback_data import *
+from utils import *
+from .common import *
 
 
 router = Router()
@@ -28,7 +29,12 @@ PREV_CALLBACK_MEM = {}
 async def nav_menu_handler(
         message: Message,
 ):
-    await message.answer(text='Сразу к покупкам?', reply_markup= await main_menu_markup())
+
+    user_name = message.from_user.username
+
+    text = await render_template('main_menu.html', user_name=user_name)
+
+    await message.answer(text=text, reply_markup=await main_menu_markup())
 
 
 @router.callback_query(
@@ -126,7 +132,7 @@ async def choose_city_handler(query: CallbackQuery, state: FSMContext):
     user = await get_user(user_telegram_id)
     user_id = user.id
 
-    await query.message.answer('Выберите город', reply_markup=await choose_city_markup())
+    await query.message.answer('<b>Выберите 🌆 город:</b>', reply_markup=await choose_city_markup())
 
     user_prev_callbacks = {user_telegram_id: {'states': [], 'callbacks_data': []}}
     PREV_CALLBACK_MEM.update(user_prev_callbacks)
@@ -163,7 +169,7 @@ async def choose_location_handler(query: CallbackQuery, state: FSMContext):
     city_id = callback_data.id
     city_title = callback_data.title
 
-    await query.message.answer('Выберите локацию', reply_markup=await choose_location_markup(city_id))
+    await query.message.answer('<b>Выберите 🌍 локацию</b>', reply_markup=await choose_location_markup(city_id))
 
     await state.update_data(city_id=city_id, city_title=city_title)
 
@@ -188,7 +194,7 @@ async def choose_item_handler(query: CallbackQuery, state: FSMContext):
     location_id = callback_data.id
     location_title = callback_data.title
 
-    await query.message.answer('Выберите товар', reply_markup=await choose_item_markup(location_id))
+    await query.message.answer('<b>Выберите 🛒 товар</b>', reply_markup=await choose_item_markup(location_id))
 
     await state.update_data(location_id=location_id, location_title=location_title)
 
@@ -213,7 +219,7 @@ async def choose_category_handler(query: CallbackQuery, state: FSMContext):
     item_id = callback_data.id
     item_title = callback_data.title
 
-    await query.message.answer('Выберите категорию', reply_markup=await choose_category_markup(item_id))
+    await query.message.answer('<b>Выберите 💼 категорию</b>', reply_markup=await choose_category_markup(item_id))
 
     await state.update_data(
         item_id=item_id,
@@ -248,7 +254,7 @@ async def payment_start_handler(query: CallbackQuery, state: FSMContext):
 
     if current_state != PaymentState.last_order_has_not_been_paid:
         await state.set_state(PaymentState.create_order_state)
-        await query.message.answer(text='Подтвердить выбор?', reply_markup=await confirm_choice_markup())
+        await query.message.answer(text='<b>Подтвердить ✅ выбор?</b>', reply_markup=await confirm_choice_markup())
 
 
 @router.callback_query(
@@ -291,9 +297,9 @@ async def process_payment_handler(query: CallbackQuery, state: FSMContext):
     current_state = await state.get_state()
 
     if current_state == PaymentState.order_expired_state:
-        await query.message.answer('Заказ просрочен!')
+        await query.message.answer('<b>Заказ 🚫 просрочен!</b>')
     elif current_state == PaymentState.order_paid_state:
-        await query.message.answer('Заказ оплачен!')
+        await query.message.answer('<b>Заказ оплачен!</b>')
     elif current_state == PaymentState.last_order_has_not_been_paid:
 
         data = await state.get_data()
@@ -322,7 +328,6 @@ async def process_payment_handler(query: CallbackQuery, state: FSMContext):
 async def refuse_payment_handler(query: CallbackQuery, state: FSMContext):
 
     await state.set_state(NavigationState.main_menu_state)
-    await query.message.answer('Вы отказались от заказа!')
     await nav_menu_handler(query.message)
 
 
