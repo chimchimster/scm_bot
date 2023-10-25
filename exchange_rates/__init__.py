@@ -1,0 +1,1 @@
+from .api import get_latest_exchange_rate_on_pair_btc_rub

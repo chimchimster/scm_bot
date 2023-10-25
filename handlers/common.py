@@ -1,7 +1,10 @@
 from typing import Union
 
+from decimal import Decimal, getcontext
+
 from database import *
 from utils import render_template
+from exchange_rates import get_latest_exchange_rate_on_pair_btc_rub
 
 
 async def get_personal_account_info(
@@ -43,6 +46,10 @@ async def get_order_info(
     if not category:
         return
 
+    exchange_rate_btc_rub = await get_latest_exchange_rate_on_pair_btc_rub()
+
+    getcontext().prec = 10
+
     text = await render_template(
         'order_detail.html',
         id=order_id,
@@ -50,6 +57,7 @@ async def get_order_info(
         title=item.title,
         category=category.title,
         total_cost=item.price,
+        btc_price=Decimal(str(item.price)) / Decimal(str(exchange_rate_btc_rub))
     )
 
     return text

@@ -1,3 +1,3 @@
-async def round_float_value(value: float):
+async def round_float_value(value: float, *args):
 
-    return round(value, 2)
+    return round(value, args[0])

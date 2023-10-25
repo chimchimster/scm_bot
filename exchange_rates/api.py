@@ -2,7 +2,7 @@ import aiohttp
 
 from typing import Optional
 
-from config import config_api
+from .config import config_api
 
 
 class HTTPRequestError(Exception):
